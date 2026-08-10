@@ -2,7 +2,7 @@ const Repository = require("../../models/Repository");
 const RepositorySnapshot = require("../../models/RepositorySnapshot");
 const CodeSymbol = require("../../models/CodeSymbol");
 const CodeRelation = require("../../models/CodeRelation");
-const githubService = require("../../services/github.service");
+const githubService = require("../../integrations/github/github.service");
 const mongoose = require("mongoose");
 
 /**
