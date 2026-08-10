@@ -42,7 +42,16 @@ function App() {
             <Route path="/repository/:id/visualizer" element={<RepositoryVisualizer />} />
             <Route path="/repository/visualizer" element={<RepositoryVisualizer />} />
             <Route path="/repo" element={<Repository />} />
+            
+            {/* PR Review Routes & Aliases */}
             <Route path="/repository/:repoId/pr/:prNumber" element={<PRReview />} />
+            <Route path="/repository/:repoId/pull/:prNumber" element={<PRReview />} />
+            <Route path="/pr/:prNumber" element={<PRReview />} />
+            <Route path="/pr/:id" element={<PRReview />} />
+            <Route path="/pr-review" element={<PRReview />} />
+            <Route path="/pr" element={<PRReview />} />
+            <Route path="/review" element={<PRReview />} />
+
             <Route path="/code-health" element={<CodeHealth />} />
             <Route path="/health" element={<CodeHealth />} />
           </Route>

@@ -1,4 +1,5 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
@@ -11,6 +12,8 @@ const webhookRoutes = require("./src/modules/webhook/github.webhook.routes");
 const incidentRoutes = require("./src/modules/incident/incident.routes");
 const meetingRoutes = require("./src/modules/meeting/meeting.routes");
 const aiRoutes = require("./mayank-ai-engine/src/routes");
+const chatRoutes = require("./src/modules/chat/chat.routes");
+const userRoutes = require("./src/modules/user/user.routes");
 
 const app = express();
 
@@ -51,6 +54,8 @@ app.use("/api/webhooks", webhookRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/reviews", meetingRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api", aiRoutes);
 
 app.get("/", (req, res) => {
