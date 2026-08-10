@@ -39,8 +39,7 @@ function App() {
             <Route path="/incidents/:id" element={<IncidentDetail />} />
             <Route path="/repository/:id" element={<Repository />} />
             <Route path="/repo" element={<Repository />} />
-            <Route path="/pr-review" element={<PRReview />} />
-            <Route path="/pr/:id" element={<PRReview />} />
+            <Route path="/repository/:repoId/pr/:prNumber" element={<PRReview />} />
             <Route path="/code-health" element={<CodeHealth />} />
             <Route path="/health" element={<CodeHealth />} />
           </Route>

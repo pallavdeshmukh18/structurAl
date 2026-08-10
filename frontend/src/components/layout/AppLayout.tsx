@@ -7,11 +7,14 @@ export function AppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
 
+  const repoMatch = location.pathname.match(/\/repository\/([^/]+)/);
+  const currentRepoId = repoMatch ? repoMatch[1] : null;
+
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
     { name: "Incidents", path: "/incidents", icon: AlertTriangle },
-    { name: "Repository", path: "/repo", icon: FolderGit2 },
-    { name: "PR Reviews", path: "/pr/1", icon: GitPullRequest },
+    { name: "Repository", path: currentRepoId ? `/repository/${currentRepoId}` : "/repo", icon: FolderGit2 },
+    { name: "PR Reviews", path: currentRepoId ? `/repository/${currentRepoId}?tab=prs` : "/repo?tab=prs", icon: GitPullRequest },
     { name: "Code Health", path: "/health", icon: Activity },
   ];
 
