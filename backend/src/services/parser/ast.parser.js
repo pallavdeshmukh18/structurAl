@@ -12,6 +12,32 @@ const EXTENSION_MAP = {
   ".tsx": "typescript",
   ".py": "python",
   ".go": "go",
+  ".c": "cpp",
+  ".cpp": "cpp",
+  ".cc": "cpp",
+  ".cxx": "cpp",
+  ".h": "cpp",
+  ".hpp": "cpp",
+  ".hh": "cpp",
+  ".java": "java",
+  ".rs": "rust",
+  ".rb": "ruby",
+  ".php": "php",
+  ".cs": "csharp",
+  ".sh": "bash",
+  ".bash": "bash",
+  ".zsh": "bash",
+  ".sol": "solidity",
+  ".json": "json",
+  ".yaml": "yaml",
+  ".yml": "yaml",
+  ".md": "markdown",
+  ".sql": "sql",
+  ".html": "html",
+  ".css": "css",
+  ".scss": "css",
+  ".toml": "toml",
+  ".xml": "xml",
 };
 
 /**
@@ -75,11 +101,11 @@ const shouldIgnorePath = (filePath) => {
  * Detect language from file path
  */
 const detectLanguage = (filePath) => {
-  if (!filePath) return null;
+  if (!filePath) return "text";
   const lastDot = filePath.lastIndexOf(".");
-  if (lastDot === -1) return null;
+  if (lastDot === -1) return "text";
   const ext = filePath.slice(lastDot).toLowerCase();
-  return EXTENSION_MAP[ext] || null;
+  return EXTENSION_MAP[ext] || "text";
 };
 
 /**
@@ -714,19 +740,97 @@ function parseGo(filePath, sourceCode) {
   return { symbols, relations, lineCount: lines.length };
 }
 
+
+
+/**
+ * Generic Parser for C/C++, Java, Rust, C#, Shell, and text files
+ */
+function parseGenericSourceFile(filePath, sourceCode, language) {
+  const symbols = [];
+  const relations = [];
+  const lines = (sourceCode || "").split("\n");
+
+  const fileName = filePath.split("/").pop() || filePath;
+  const fileSymbol = {
+    filePath,
+    symbol: {
+      name: fileName,
+      type: "class",
+      language,
+    },
+    location: {
+      startLine: 1,
+      startColumn: 0,
+      endLine: lines.length,
+      endColumn: 0,
+    },
+    signature: `file ${fileName}`,
+    metadata: {
+      language,
+      lineCount: lines.length,
+    },
+    codeHash: computeCodeHash(fileName),
+    tempId: `file:${filePath}:1`,
+  };
+  symbols.push(fileSymbol);
+
+  if (
+    language === "cpp" ||
+    language === "java" ||
+    language === "rust" ||
+    language === "csharp" ||
+    language === "bash" ||
+    language === "php" ||
+    language === "ruby" ||
+    language === "solidity"
+  ) {
+    const funcRegex = /(?:func|fn|function|def|public|private|protected|static|\s)+([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*[\{:]/g;
+    let match;
+    while ((match = funcRegex.exec(sourceCode)) !== null) {
+      const funcName = match[1];
+      if (
+        !funcName ||
+        funcName === "if" ||
+        funcName === "for" ||
+        funcName === "while" ||
+        funcName === "switch" ||
+        funcName === "catch" ||
+        funcName === "return"
+      ) {
+        continue;
+      }
+      const startLine = sourceCode.slice(0, match.index).split("\n").length;
+
+      symbols.push({
+        filePath,
+        symbol: {
+          name: funcName,
+          type: "function",
+          language,
+        },
+        parentTempId: fileSymbol.tempId,
+        location: {
+          startLine,
+          startColumn: 0,
+          endLine: Math.min(lines.length, startLine + 15),
+          endColumn: 0,
+        },
+        signature: `${funcName}(${(match[2] || "").trim()})`,
+        metadata: { language },
+        codeHash: computeCodeHash(match[0]),
+        tempId: `func:${funcName}:${startLine}`,
+      });
+    }
+  }
+
+  return { symbols, relations, lineCount: lines.length };
+}
+
 /**
  * Universal AST Parser
  */
 function parseSourceFile(filePath, sourceCode) {
-  const language = detectLanguage(filePath);
-  if (!language) {
-    return {
-      symbols: [],
-      relations: [],
-      lineCount: sourceCode ? sourceCode.split("\n").length : 0,
-      unsupported: true,
-    };
-  }
+  const language = detectLanguage(filePath) || "text";
 
   switch (language) {
     case "javascript":
@@ -737,12 +841,7 @@ function parseSourceFile(filePath, sourceCode) {
     case "go":
       return parseGo(filePath, sourceCode);
     default:
-      return {
-        symbols: [],
-        relations: [],
-        lineCount: sourceCode.split("\n").length,
-        unsupported: true,
-      };
+      return parseGenericSourceFile(filePath, sourceCode, language);
   }
 }
 

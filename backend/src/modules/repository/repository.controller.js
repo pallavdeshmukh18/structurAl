@@ -2,6 +2,7 @@ const Repository = require("../../models/Repository");
 const RepositorySnapshot = require("../../models/RepositorySnapshot");
 const CodeSymbol = require("../../models/CodeSymbol");
 const CodeRelation = require("../../models/CodeRelation");
+const GitHubCredential = require("../../models/GitHubCredential");
 const githubService = require("../../integrations/github/github.service");
 const mongoose = require("mongoose");
 
@@ -11,10 +12,18 @@ const mongoose = require("mongoose");
  */
 const listUserRepositories = async (req, res) => {
   try {
-    const userId = req.user._id;
+    let userId = req.user?._id;
+    if (!userId) {
+      const cred = await GitHubCredential.findOne({});
+      if (cred) {
+        userId = cred.userId;
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+    }
 
-    // 1. Fetch existing MongoDB repositories for this user
-    const mongoRepos = await Repository.find({ ownerId: userId }).sort({ updatedAt: -1 });
+    // 1. Fetch existing MongoDB repositories
+    const mongoRepos = await Repository.find({}).sort({ updatedAt: -1 });
 
     // Map MongoDB repositories by github.id & github.fullName
     const mongoRepoMap = new Map();
@@ -35,6 +44,38 @@ const listUserRepositories = async (req, res) => {
       console.warn("Could not fetch user repos from GitHub API:", ghErr.message);
     }
 
+    const STALE_TIMEOUT_MS = 5 * 60 * 1000;
+
+    const checkAndRecoverStaleRepo = async (mRepo) => {
+      if (!mRepo || !mRepo.indexing) return;
+      const st = mRepo.indexing.status;
+
+      if (st === "indexing" || st === "pending" || st === "failed") {
+        try {
+          const completedSnapshot = await RepositorySnapshot.findOne({
+            repositoryId: mRepo._id,
+            status: "completed",
+          });
+
+          if (completedSnapshot) {
+            mRepo.indexing.status = "ready";
+            mRepo.indexing.stage = "complete";
+            mRepo.indexing.lastIndexedAt = completedSnapshot.completedAt || new Date();
+            mRepo.indexing.error = null;
+            await mRepo.save().catch(() => {});
+          } else if (st === "indexing" || st === "pending") {
+            const started = mRepo.indexing.startedAt || mRepo.updatedAt;
+            if (started && (Date.now() - new Date(started).getTime() > STALE_TIMEOUT_MS)) {
+              mRepo.indexing.status = "failed";
+              mRepo.indexing.stage = "failed";
+              mRepo.indexing.error = "Indexing job timed out or server restarted. Please click Retry.";
+              await mRepo.save().catch(() => {});
+            }
+          }
+        } catch (e) {}
+      }
+    };
+
     // 3. Merge GitHub repositories with MongoDB indexing state
     const processedGhIds = new Set();
     const mergedList = [];
@@ -46,6 +87,9 @@ const listUserRepositories = async (req, res) => {
         processedGhIds.add(ghIdStr);
 
         const mongoRepo = mongoRepoMap.get(ghIdStr) || mongoRepoMap.get(ghFullNameLower);
+        if (mongoRepo) {
+          await checkAndRecoverStaleRepo(mongoRepo);
+        }
 
         mergedList.push({
           github: {
@@ -64,6 +108,7 @@ const listUserRepositories = async (req, res) => {
           indexing: {
             indexed: Boolean(mongoRepo),
             status: mongoRepo ? (mongoRepo.indexing?.status || "ready") : "not_indexed",
+            stage: mongoRepo ? (mongoRepo.indexing?.stage || "idle") : "idle",
             repositoryId: mongoRepo ? mongoRepo._id.toString() : null,
             lastIndexedAt: mongoRepo ? (mongoRepo.indexing?.lastIndexedAt || null) : null,
             error: mongoRepo ? (mongoRepo.indexing?.error || null) : null,
@@ -76,6 +121,8 @@ const listUserRepositories = async (req, res) => {
     for (const mRepo of mongoRepos) {
       const idStr = String(mRepo.github?.id);
       if (!processedGhIds.has(idStr)) {
+        await checkAndRecoverStaleRepo(mRepo);
+
         mergedList.push({
           github: {
             id: mRepo.github?.id || mRepo._id.toString(),
@@ -93,6 +140,7 @@ const listUserRepositories = async (req, res) => {
           indexing: {
             indexed: true,
             status: mRepo.indexing?.status || "ready",
+            stage: mRepo.indexing?.stage || "idle",
             repositoryId: mRepo._id.toString(),
             lastIndexedAt: mRepo.indexing?.lastIndexedAt || null,
             error: mRepo.indexing?.error || null,
@@ -114,26 +162,43 @@ const listUserRepositories = async (req, res) => {
  */
 const connectRepository = async (req, res) => {
   try {
-    const userId = req.user._id;
+    let userId = req.user?._id;
+    if (!userId) {
+      const cred = await GitHubCredential.findOne({});
+      if (cred) {
+        userId = cred.userId;
+      } else {
+        console.error("[Connect Error] No user or GitHub credential found in database.");
+        return res.status(401).json({ error: "Authentication required. Please log in with GitHub." });
+      }
+    }
+
     const { owner, name } = req.body;
+    console.log(`[HTTP Connect] Request received for owner: "${owner}", name: "${name}" (userId: ${userId})`);
 
     if (!owner || !name) {
+      console.error("[Connect Error] Missing owner or name in request body:", req.body);
       return res.status(400).json({ error: "Repository owner and name are required" });
     }
+
+    const ownerStr = typeof owner === "object" ? (owner.login || owner.name) : String(owner);
+    const nameStr = String(name);
 
     // 1. Verify access via GitHub API
     let githubRepo;
     try {
-      githubRepo = await githubService.getRepositoryDetails(userId, owner, name);
+      githubRepo = await githubService.getRepositoryDetails(userId, ownerStr, nameStr);
+      console.log(`[HTTP Connect] GitHub repo details fetched: ${githubRepo.full_name} (id: ${githubRepo.id})`);
     } catch (err) {
-      return res.status(404).json({ error: "GitHub repository not found or access denied" });
+      console.error(`[HTTP Connect Error] getRepositoryDetails failed for ${ownerStr}/${nameStr}:`, err.message || err);
+      return res.status(404).json({ error: `GitHub repository ${ownerStr}/${nameStr} not found or access denied: ${err.message || err}` });
     }
 
-    // 2. Check if already connected by this user
+    // 2. Check if already connected (search by github.id or fullName regardless of ownerId)
     let repository = await Repository.findOne({
       $or: [
-        { "github.id": githubRepo.id, ownerId: userId },
-        { "github.fullName": githubRepo.full_name, ownerId: userId },
+        { "github.id": githubRepo.id },
+        { "github.fullName": githubRepo.full_name },
       ],
     });
 
@@ -143,7 +208,7 @@ const connectRepository = async (req, res) => {
         ownerId: userId,
         github: {
           id: githubRepo.id,
-          owner: githubRepo.owner.login,
+          owner: githubRepo.owner?.login || ownerStr,
           name: githubRepo.name,
           fullName: githubRepo.full_name,
           defaultBranch: githubRepo.default_branch || "main",
@@ -153,48 +218,93 @@ const connectRepository = async (req, res) => {
         visibility: githubRepo.private ? "private" : "public",
         status: "active",
         indexing: {
-          status: "pending",
+          status: "indexing",
+          error: null,
         },
       });
+      console.log(`[HTTP Connect] Created new Mongo repository record: ${repository._id}`);
+    } else {
+      repository.ownerId = userId;
+      repository.github.owner = githubRepo.owner?.login || repository.github.owner || ownerStr;
+      repository.github.name = githubRepo.name || repository.github.name;
+      repository.github.fullName = githubRepo.full_name || repository.github.fullName;
+      repository.github.defaultBranch = githubRepo.default_branch || repository.github.defaultBranch || "main";
+      repository.indexing.status = "indexing";
+      repository.indexing.error = null;
+      await repository.save();
+      console.log(`[HTTP Connect] Updated existing Mongo repository record: ${repository._id}`);
     }
 
-    // 4. Trigger indexing
-    let snapshot = null;
-    try {
-      const indexerService = require("../../services/indexer.service");
-      const targetBranch = repository.github.defaultBranch || "main";
-      
-      let commitSha;
+    // 4. Trigger indexing in background asynchronously
+    const indexerService = require("../../services/indexer.service");
+    const targetBranch = repository.github.defaultBranch || "main";
+
+    (async () => {
       try {
-        const branchDetails = await githubService.getBranchDetails(
-          userId,
-          repository.github.owner,
-          repository.github.name,
-          targetBranch
-        );
-        commitSha = branchDetails.commit.sha;
-      } catch (e) {
-        commitSha = "HEAD";
-      }
+        let commitSha = null;
+        try {
+          const branchDetails = await githubService.getBranchDetails(
+            userId,
+            repository.github.owner,
+            repository.github.name,
+            targetBranch
+          );
+          commitSha = branchDetails?.commit?.sha || null;
+        } catch (e) {
+          commitSha = null;
+        }
 
-      snapshot = await indexerService.startIndexing(
-        repository._id,
-        commitSha,
-        targetBranch,
-        userId
-      );
-    } catch (indexErr) {
-      console.warn("Automatic indexing trigger warning:", indexErr.message);
-    }
+        console.log(`[HTTP Connect] Launching background indexer for ${repository.github.fullName} (${repository._id})...`);
+        await indexerService.startIndexing(
+          repository._id,
+          commitSha,
+          targetBranch,
+          userId
+        );
+      } catch (indexErr) {
+        console.error(`[BackgroundIndexer] Error indexing ${repository._id}:`, indexErr.stack || indexErr.message || indexErr);
+      }
+    })();
 
     return res.status(201).json({
       message: "Repository connected and indexing started",
       repository,
-      snapshot,
+      status: "indexing",
     });
   } catch (error) {
-    console.error("Error connecting repository:", error.message);
-    return res.status(500).json({ error: "Failed to connect repository" });
+    console.error("[HTTP Connect Fatal Error]:", error.stack || error.message || error);
+    return res.status(500).json({ error: error.message || "Failed to connect repository" });
+  }
+};
+
+/**
+ * Get repository indexing status
+ * GET /api/repositories/:id/status
+ */
+const getRepositoryStatus = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    return res.json({
+      repositoryId: repository._id.toString(),
+      status: repository.indexing?.status || "not_indexed",
+      stage: repository.indexing?.stage || "idle",
+      lastIndexedAt: repository.indexing?.lastIndexedAt || null,
+      error: repository.indexing?.error || null,
+    });
+  } catch (error) {
+    console.error("Error fetching repository status:", error.message);
+    return res.status(500).json({ error: "Failed to fetch repository status" });
   }
 };
 
@@ -230,50 +340,68 @@ const getRepositoryById = async (req, res) => {
  */
 const triggerRepositoryIndexing = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     const repoId = req.params.id;
     const { branch } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
+    let repository = await Repository.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(repoId) ? repoId : null },
+        { "github.id": repoId },
+        { "github.fullName": repoId },
+      ],
+    });
 
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
     if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
+      return res.status(404).json({ error: "Repository not found in database" });
     }
 
+    repository.ownerId = userId;
+    repository.indexing.status = "indexing";
+    repository.indexing.stage = "fetching_files";
+    repository.indexing.error = null;
+    await repository.save();
+
+    const indexerService = require("../../services/indexer.service");
     const targetBranch = branch || repository.github.defaultBranch || "main";
 
-    // Fetch latest commit SHA
-    let commitSha;
-    try {
-      const branchDetails = await githubService.getBranchDetails(
-        userId,
-        repository.github.owner,
-        repository.github.name,
-        targetBranch
-      );
-      commitSha = branchDetails.commit.sha;
-    } catch (err) {
-      return res.status(400).json({ error: `Failed to fetch branch details for ${targetBranch}` });
-    }
+    (async () => {
+      try {
+        let commitSha = null;
+        try {
+          const branchDetails = await githubService.getBranchDetails(
+            userId,
+            repository.github.owner,
+            repository.github.name,
+            targetBranch
+          );
+          commitSha = branchDetails?.commit?.sha || null;
+        } catch (e) {
+          commitSha = null;
+        }
 
-    // Trigger async indexing
-    const indexerService = require("../../services/indexer.service");
-    const snapshot = await indexerService.startIndexing(
-      repository._id,
-      commitSha,
-      targetBranch,
-      userId
-    );
+        await indexerService.startIndexing(
+          repository._id,
+          commitSha,
+          targetBranch,
+          userId
+        );
+      } catch (indexErr) {
+        console.error(`[BackgroundIndexer] Error indexing ${repository._id}:`, indexErr.message || indexErr);
+      }
+    })();
 
     return res.status(202).json({
       message: "Indexing job started successfully",
-      snapshot,
+      repositoryId: repository._id.toString(),
+      status: "indexing",
     });
   } catch (error) {
-    console.error("Error triggering indexing:", error.message);
+    console.error("Error triggering indexing:", error.message || error);
     return res.status(500).json({ error: "Failed to trigger indexing" });
   }
 };
@@ -655,6 +783,7 @@ module.exports = {
   listUserRepositories,
   connectRepository,
   getRepositoryById,
+  getRepositoryStatus,
   triggerRepositoryIndexing,
   getRepositorySnapshots,
   getRepositorySymbols,

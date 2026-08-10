@@ -415,8 +415,13 @@ function GraphCanvas({
 
 // --- Main Repository Visualizer Page ---
 export function RepositoryVisualizer() {
-  const { id: repoIdParam } = useParams<{ id: string }>();
+  const { id: rawRepoIdParam } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const repoIdParam =
+    rawRepoIdParam && rawRepoIdParam !== "undefined" && rawRepoIdParam !== "null"
+      ? rawRepoIdParam
+      : null;
 
   const [graphData, setGraphData] = useState<GraphResponse | null>(null);
   const [repoDetails, setRepoDetails] = useState<RepositoryDetails | null>(null);
@@ -438,6 +443,13 @@ export function RepositoryVisualizer() {
   const [relationTypeFilter, setRelationTypeFilter] = useState<string>("all");
 
   const fetchGraphAndRepo = useCallback(async (targetRepoId: string) => {
+    if (!targetRepoId || targetRepoId === "undefined" || targetRepoId === "null") {
+      setLoading(false);
+      setErrorType("not_found");
+      setError("Invalid repository ID.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -506,20 +518,27 @@ export function RepositoryVisualizer() {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data && Array.isArray(data.repositories) && data.repositories.length > 0) {
-            const firstRepo = data.repositories[0];
-            const targetId = firstRepo._id || firstRepo.id;
-            navigate(`/repository/${targetId}/visualizer`, { replace: true });
-          } else {
-            setLoading(false);
-            setErrorType("not_found");
-            setError("No connected repositories found. Please connect a GitHub repository from the Dashboard first.");
+            const indexedRepo = data.repositories.find(
+              (r: any) => r.indexing?.indexed && (r.indexing?.repositoryId || r._id)
+            );
+            const firstRepo = indexedRepo || data.repositories[0];
+            const targetId = firstRepo.indexing?.repositoryId || firstRepo._id;
+
+            if (targetId && targetId !== "undefined" && targetId !== "null") {
+              navigate(`/repository/${targetId}/visualizer`, { replace: true });
+              return;
+            }
           }
+
+          setLoading(false);
+          setErrorType("not_found");
+          setError("No indexed repository selected. Please select an indexed repository from the Dashboard to open the Visualizer.");
         })
         .catch((err) => {
           console.error("Error retrieving user repositories:", err);
           setLoading(false);
           setErrorType("generic");
-          setError("Unable to retrieve user repositories. Please check your network connection.");
+          setError("Unable to retrieve user repositories. Please select a repository from the Dashboard.");
         });
     }
   }, [repoIdParam, fetchGraphAndRepo, navigate]);
@@ -965,9 +984,17 @@ export function RepositoryVisualizer() {
     return { incoming, outgoing };
   }, [selectedSymbol, graphData]);
 
-  const repoName =
-    repoDetails?.github?.fullName ||
+  const repoDisplayName =
+    repoDetails?.github?.name ||
+    (repoDetails?.github?.fullName ? repoDetails.github.fullName.split("/").pop() : null) ||
     (graphData ? `Repository (${graphData.repositoryId.slice(0, 8)})` : "Repository Visualizer");
+
+  const repoFullName =
+    repoDetails?.github?.fullName ||
+    (repoDetails?.github?.owner && repoDetails?.github?.name
+      ? `${repoDetails.github.owner}/${repoDetails.github.name}`
+      : null);
+
   const branchName = graphData?.snapshot?.branch || repoDetails?.github?.defaultBranch || "main";
   const commitShaShort = graphData?.snapshot?.commitSha
     ? graphData.snapshot.commitSha.slice(0, 7)
@@ -979,26 +1006,54 @@ export function RepositoryVisualizer() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center space-x-3">
           <Link
-            to={repoIdParam ? `/repository/${repoIdParam}` : "/repo"}
-            className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors flex items-center text-xs font-medium"
+            to={repoIdParam ? `/repository/${repoIdParam}` : "/dashboard"}
+            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors flex items-center text-xs font-semibold shrink-0"
           >
-            <ArrowLeft className="w-4 h-4 mr-1" />
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
             Overview
           </Link>
 
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Network className="w-5 h-5 text-emerald-600" />
-                <span>{repoName}</span>
-              </h1>
-              <Badge variant="outline" className="capitalize text-xs">
-                {repoDetails?.visibility || "public"}
-              </Badge>
-            </div>
-            <p className="text-slate-500 text-xs mt-0.5">
-              Architecture Blueprint & System Dependency Exploration
-            </p>
+            {loading ? (
+              <div>
+                <div className="flex items-center gap-2">
+                  <Network className="w-5 h-5 text-emerald-600 animate-pulse" />
+                  <h1 className="text-lg font-bold tracking-tight text-slate-900">Repository Visualizer</h1>
+                </div>
+                <p className="text-slate-500 text-xs mt-0.5 font-medium">Loading repository graph...</p>
+              </div>
+            ) : error ? (
+              <div>
+                <div className="flex items-center gap-2">
+                  <Network className="w-5 h-5 text-rose-500" />
+                  <h1 className="text-lg font-bold tracking-tight text-slate-900">Repository Visualizer</h1>
+                </div>
+                <p className="text-rose-500 text-xs mt-0.5 font-semibold">Repository unavailable</p>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Network className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
+                    {repoDisplayName}
+                  </h1>
+                  <Badge variant="outline" className="capitalize text-xs font-semibold bg-slate-50 text-slate-700">
+                    {repoDetails?.visibility || "public"}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-mono text-indigo-700 bg-indigo-50/50 border-indigo-200">
+                    <GitBranch className="w-3 h-3 mr-1 inline-block text-indigo-500" />
+                    {branchName}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                  {repoFullName && <span className="font-mono font-medium text-slate-600">{repoFullName}</span>}
+                  {repoFullName && <span>•</span>}
+                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                    Repository Visualizer
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

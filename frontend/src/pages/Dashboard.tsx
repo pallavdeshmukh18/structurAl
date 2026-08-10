@@ -49,6 +49,7 @@ export interface DashboardRepository {
   indexing?: {
     indexed: boolean;
     status: "not_indexed" | "pending" | "indexing" | "ready" | "failed" | string;
+    stage?: string | null;
     repositoryId: string | null;
     lastIndexedAt?: string | null;
     error?: string | null;
@@ -103,37 +104,106 @@ export function Dashboard() {
     }
   };
 
+  const fetchRepositoriesQuietly = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/repositories`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRepositories(data.repositories || []);
+      }
+    } catch (err) {
+      console.error("Error silently updating repositories:", err);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchRepositories();
     }
   }, [user]);
 
+  // Polling for in-progress indexing jobs
+  useEffect(() => {
+    const hasActiveIndexing = repositories.some((r) => {
+      const st = (r.indexing?.status || "").toLowerCase();
+      return st === "indexing" || st === "pending";
+    });
+
+    if (!hasActiveIndexing) return;
+
+    const timer = setInterval(() => {
+      fetchRepositoriesQuietly();
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [repositories]);
+
   const handleIndexRepository = async (repo: DashboardRepository) => {
-    const owner = repo.github?.owner || repo.owner;
-    const name = repo.github?.name || repo.name;
+    const ownerStr =
+      typeof repo.github?.owner === "string"
+        ? repo.github.owner
+        : (repo.github?.owner as any)?.login || (repo.owner as any)?.login || repo.owner;
+    const nameStr =
+      typeof repo.github?.name === "string"
+        ? repo.github.name
+        : repo.name;
     const cardId = repo.github?.id || repo.id || repo._id;
 
-    if (!owner || !name) return;
+    if (!ownerStr || !nameStr) {
+      console.error("[UI Indexing Error] Missing owner or name string:", { ownerStr, nameStr, repo });
+      return;
+    }
 
+    console.log(`[UI Indexing] Initiating index request for "${ownerStr}/${nameStr}" (cardId: ${cardId})`);
     setActionLoadingId(cardId || null);
 
+    // Immediately set state to indexing locally for instant feedback
+    setRepositories((prev) =>
+      prev.map((r) => {
+        const matchedId = r.github?.id || r.id || r._id;
+        if (matchedId === cardId) {
+          return {
+            ...r,
+            indexing: {
+              indexed: true,
+              status: "indexing",
+              repositoryId: r.indexing?.repositoryId || null,
+              lastIndexedAt: null,
+            },
+          };
+        }
+        return r;
+      })
+    );
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/repositories/connect`, {
+      const connectUrl = `${API_BASE_URL}/api/repositories/connect`;
+      console.log(`[UI Indexing] Sending POST to ${connectUrl} with payload:`, { owner: ownerStr, name: nameStr });
+
+      const response = await fetch(connectUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ owner, name }),
+        body: JSON.stringify({ owner: ownerStr, name: nameStr }),
       });
+
+      console.log(`[UI Indexing] Received response HTTP ${response.status}`);
 
       if (response.ok) {
         const data = await response.json();
+        console.log(`[UI Indexing] Success response payload:`, data);
         const mongoRepo = data.repository;
         const mongoId = mongoRepo?._id;
 
-        // Update card locally to indexed
         setRepositories((prev) =>
           prev.map((r) => {
             const matchedId = r.github?.id || r.id || r._id;
@@ -144,7 +214,28 @@ export function Dashboard() {
                   indexed: true,
                   status: mongoRepo?.indexing?.status || "indexing",
                   repositoryId: mongoId || null,
-                  lastIndexedAt: new Date().toISOString(),
+                  lastIndexedAt: mongoRepo?.indexing?.lastIndexedAt || null,
+                  error: mongoRepo?.indexing?.error || null,
+                },
+              };
+            }
+            return r;
+          })
+        );
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        console.error(`[UI Indexing Error] HTTP ${response.status} Error details:`, errData);
+        setRepositories((prev) =>
+          prev.map((r) => {
+            const matchedId = r.github?.id || r.id || r._id;
+            if (matchedId === cardId) {
+              return {
+                ...r,
+                indexing: {
+                  indexed: false,
+                  status: "failed",
+                  repositoryId: r.indexing?.repositoryId || null,
+                  error: errData.error || `HTTP ${response.status} Failed to connect repository`,
                 },
               };
             }
@@ -153,7 +244,7 @@ export function Dashboard() {
         );
       }
     } catch (err) {
-      console.error("Index repository error:", err);
+      console.error("[UI Indexing Exception] Exception during fetch:", err);
     } finally {
       setActionLoadingId(null);
     }
@@ -289,9 +380,11 @@ export function Dashboard() {
                 const repoBranch = repo.github?.defaultBranch || repo.defaultBranch || "main";
                 const repoUrl = repo.github?.url || repo.url || "#";
 
-                const isIndexed = repo.indexing?.indexed === true;
                 const mongoRepoId = repo.indexing?.repositoryId || repo._id;
-                const isActionLoading = actionLoadingId === cardId;
+                const st = (repo.indexing?.status || "").toLowerCase();
+                const isIndexing = st === "indexing" || st === "pending" || actionLoadingId === cardId;
+                const isIndexed = (st === "ready" || st === "indexed") && Boolean(mongoRepoId);
+                const isFailed = st === "failed";
 
                 return (
                   <div
@@ -304,10 +397,25 @@ export function Dashboard() {
                           {repoName}
                         </h3>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {isIndexed ? (
+                          {isIndexing ? (
+                            <span className="flex items-center gap-1 text-[11px] text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md capitalize">
+                              <RefreshCw className="w-3 h-3 text-indigo-600 animate-spin" />
+                              {repo.indexing?.stage && repo.indexing.stage !== "idle"
+                                ? repo.indexing.stage.replace(/_/g, " ")
+                                : "Indexing..."}
+                            </span>
+                          ) : isIndexed ? (
                             <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                               Indexed
+                            </span>
+                          ) : isFailed ? (
+                            <span
+                              className="flex items-center gap-1 text-[11px] text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md cursor-help"
+                              title={repo.indexing?.error || "Indexing failed"}
+                            >
+                              <AlertCircle className="w-3 h-3 text-rose-600" />
+                              Index Failed
                             </span>
                           ) : (
                             <span className="flex items-center gap-1 text-[11px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
@@ -354,7 +462,16 @@ export function Dashboard() {
                       </a>
 
                       <div className="flex items-center gap-1.5">
-                        {isIndexed && mongoRepoId ? (
+                        {isIndexing ? (
+                          <Button
+                            size="sm"
+                            disabled
+                            className="text-xs h-8 px-3 bg-indigo-500 text-white flex items-center gap-1.5 opacity-85 cursor-not-allowed"
+                          >
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Indexing...</span>
+                          </Button>
+                        ) : isIndexed && mongoRepoId ? (
                           <>
                             <Button
                               size="sm"
@@ -375,24 +492,23 @@ export function Dashboard() {
                               Inspect
                             </Button>
                           </>
+                        ) : isFailed ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleIndexRepository(repo)}
+                            className="text-xs h-8 px-3.5 bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>Retry</span>
+                          </Button>
                         ) : (
                           <Button
                             size="sm"
                             onClick={() => handleIndexRepository(repo)}
-                            disabled={isActionLoading}
                             className="text-xs h-8 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5"
                           >
-                            {isActionLoading ? (
-                              <>
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                <span>Indexing...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3 h-3 fill-current" />
-                                <span>Index</span>
-                              </>
-                            )}
+                            <Play className="w-3 h-3 fill-current" />
+                            <span>Index</span>
                           </Button>
                         )}
                       </div>

@@ -5,6 +5,7 @@ const {
   listUserRepositories,
   connectRepository,
   getRepositoryById,
+  getRepositoryStatus,
   triggerRepositoryIndexing,
   getRepositorySnapshots,
   getRepositorySymbols,
@@ -17,9 +18,11 @@ const {
 } = require("./repository.controller");
 const { isAuthenticated, optionalAuth } = require("../../middleware/auth");
 
-router.get("/", isAuthenticated, listUserRepositories);
+router.get("/", optionalAuth, listUserRepositories);
 router.post("/", optionalAuth, connectRepository);
+router.post("/connect", optionalAuth, connectRepository);
 router.get("/:id", optionalAuth, getRepositoryById);
+router.get("/:id/status", optionalAuth, getRepositoryStatus);
 router.post("/:id/index", optionalAuth, triggerRepositoryIndexing);
 router.get("/:id/snapshots", optionalAuth, getRepositorySnapshots);
 router.get("/:id/symbols", optionalAuth, getRepositorySymbols);

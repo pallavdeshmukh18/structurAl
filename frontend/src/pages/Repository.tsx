@@ -145,7 +145,8 @@ export function Repository() {
     (searchParams.get("tab") as "code" | "prs") || "code"
   );
 
-  const visualizerUrl = id ? `/repository/${id}/visualizer` : "/repository/visualizer";
+  const validId = id && id !== "undefined" && id !== "null" ? id : null;
+  const visualizerUrl = validId ? `/repository/${validId}/visualizer` : "/repository/visualizer";
 
   // Sync state to URL if changed by clicking buttons
   useEffect(() => {

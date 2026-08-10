@@ -9,9 +9,16 @@ export function AppLayout() {
 
   // Extract repo ID from location.pathname if currently inside /repository/:id or /repository/:id/visualizer
   const repoIdMatch = location.pathname.match(/\/repository\/([^/]+)/);
-  const currentRepoId = repoIdMatch && repoIdMatch[1] !== "visualizer" ? repoIdMatch[1] : null;
+  const rawMatchedId = repoIdMatch ? repoIdMatch[1] : null;
+  const currentRepoId =
+    rawMatchedId &&
+    rawMatchedId !== "visualizer" &&
+    rawMatchedId !== "undefined" &&
+    rawMatchedId !== "null"
+      ? rawMatchedId
+      : null;
 
-  const repoPath = currentRepoId ? `/repository/${currentRepoId}` : "/repo";
+  const repoPath = currentRepoId ? `/repository/${currentRepoId}` : "/dashboard";
   const visualizerPath = currentRepoId ? `/repository/${currentRepoId}/visualizer` : "/repository/visualizer";
 
   const isVisualizerActive = location.pathname.includes("/visualizer");
