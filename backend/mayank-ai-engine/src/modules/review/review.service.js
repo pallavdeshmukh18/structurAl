@@ -1,4 +1,4 @@
-const { askForJson } = require("../../llm/claudeClient");
+const { askForJson } = require("../../llm/groqClient");
 const { REVIEW_SYSTEM_PROMPT, buildReviewUserPrompt } = require("./prompts");
 
 const VALID_SEVERITIES = new Set(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);

@@ -11,10 +11,10 @@
     "test:patch": "node test/manual-test-patch.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "groq-sdk": "^0.15.0",
     "morgan": "^1.10.0"
   },
   "devDependencies": {

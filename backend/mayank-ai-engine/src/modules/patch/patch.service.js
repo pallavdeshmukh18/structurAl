@@ -1,4 +1,4 @@
-const { askForJson } = require("../../llm/claudeClient");
+const { askForJson } = require("../../llm/groqClient");
 const { PATCH_SYSTEM_PROMPT, buildPatchUserPrompt } = require("./prompts");
 const { validatePatch } = require("./patchValidator");
 const { openFixPullRequest } = require("../../integrations/githubClient");

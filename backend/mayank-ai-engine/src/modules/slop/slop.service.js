@@ -1,4 +1,4 @@
-const { askForJson } = require("../../llm/claudeClient");
+const { askForJson } = require("../../llm/groqClient");
 const { SLOP_SYSTEM_PROMPT, buildSlopUserPrompt } = require("./prompts");
 const { sanitizeReviewResult } = require("../review/review.service");
 

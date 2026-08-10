@@ -1,8 +1,8 @@
-const Anthropic = require("@anthropic-ai/sdk");
-const { ANTHROPIC_API_KEY, CLAUDE_MODEL, DEBUG_LLM } = require("../config/env");
+const Groq = require("groq-sdk");
+const { GROQ_API_KEY, GROQ_MODEL, DEBUG_LLM } = require("../config/env");
 
-const isDummyKey = !ANTHROPIC_API_KEY || ANTHROPIC_API_KEY.includes("xxxxxxxx");
-const client = !isDummyKey ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
+const isDummyKey = !GROQ_API_KEY || GROQ_API_KEY.includes("xxxxxxxx");
+const client = !isDummyKey ? new Groq({ apiKey: GROQ_API_KEY }) : null;
 
 /**
  * Strips markdown code fences if the model wraps its JSON in ```json ... ```
@@ -17,7 +17,7 @@ function stripFences(text) {
 }
 
 /**
- * Fallback mock generator for dev/testing when ANTHROPIC_API_KEY is not set.
+ * Fallback mock generator for dev/testing when GROQ_API_KEY is not set.
  */
 function generateMockResponse(system, user) {
   const isRca = system.includes("Root Cause Analysis");
@@ -111,13 +111,13 @@ function generateMockResponse(system, user) {
 }
 
 /**
- * Calls Claude or returns mock response if API key is not configured.
+ * Calls Groq or returns mock response if API key is not configured.
  */
 async function askForJson({ system, user, maxTokens = 2000, retries = 1 }) {
   if (isDummyKey) {
     if (DEBUG_LLM) {
       // eslint-disable-next-line no-console
-      console.log("[claudeClient] Using mock response (ANTHROPIC_API_KEY not configured)");
+      console.log("[groqClient] Using mock response (GROQ_API_KEY not configured)");
     }
     return generateMockResponse(system, user);
   }
@@ -125,33 +125,35 @@ async function askForJson({ system, user, maxTokens = 2000, retries = 1 }) {
   let lastError;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const response = await client.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: user }],
-    });
-
-    const textBlock = response.content.find((block) => block.type === "text");
-    const raw = textBlock ? textBlock.text : "";
-
-    if (DEBUG_LLM) {
-      // eslint-disable-next-line no-console
-      console.log("[claudeClient] raw response:\n", raw);
-    }
-
     try {
+      const response = await client.chat.completions.create({
+        model: GROQ_MODEL,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const raw = response.choices[0]?.message?.content || "";
+
+      if (DEBUG_LLM) {
+        // eslint-disable-next-line no-console
+        console.log("[groqClient] raw response:\n", raw);
+      }
+
       return JSON.parse(stripFences(raw));
     } catch (err) {
       lastError = err;
       if (DEBUG_LLM) {
         // eslint-disable-next-line no-console
-        console.warn(`[claudeClient] JSON parse failed (attempt ${attempt + 1}):`, err.message);
+        console.warn(`[groqClient] API call / JSON parse failed (attempt ${attempt + 1}):`, err.message);
       }
     }
   }
 
-  throw new Error(`Claude did not return valid JSON after ${retries + 1} attempt(s): ${lastError.message}`);
+  throw new Error(`Groq did not return valid JSON after ${retries + 1} attempt(s): ${lastError.message}`);
 }
 
 module.exports = { askForJson };

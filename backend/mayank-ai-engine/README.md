@@ -7,7 +7,7 @@ Generator build on top of this once it's solid (see "Next" below).
 
 ```bash
 cp .env.example .env
-# paste your real ANTHROPIC_API_KEY into .env
+# paste your real GROQ_API_KEY into .env
 npm install
 npm run dev        # starts server on http://localhost:4001
 ```
@@ -76,10 +76,10 @@ to test against locally. Delete it once Pallav's client lands.
 
 ## Design notes
 
-- **`src/llm/claudeClient.js`** is the single place that talks to Claude.
+- **`src/llm/groqClient.js`** is the single place that talks to Groq.
   Both review and slop call `askForJson()`, which strips stray markdown
   fences and retries once if the model returns malformed JSON. Reuse this
-  for RCA and Patch Generator too instead of writing new Anthropic SDK calls.
+  for RCA and Patch Generator too instead of writing new Groq SDK calls.
 - **Every LLM response is sanitized** (`sanitizeReviewResult` /
   `sanitizeSlopResult`) before it leaves the service layer — scores are
   clamped 0-100, unknown severities default to `MEDIUM`, malformed findings

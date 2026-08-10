@@ -11,7 +11,7 @@ function required(name) {
 
 module.exports = {
   PORT: process.env.PORT || 4001,
-  ANTHROPIC_API_KEY: required("ANTHROPIC_API_KEY"),
-  CLAUDE_MODEL: process.env.CLAUDE_MODEL || "claude-sonnet-5",
+  GROQ_API_KEY: required("GROQ_API_KEY"),
+  GROQ_MODEL: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
   DEBUG_LLM: process.env.DEBUG_LLM === "true",
 };

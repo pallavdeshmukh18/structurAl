@@ -1,4 +1,4 @@
-const { askForJson } = require("../../llm/claudeClient");
+const { askForJson } = require("../../llm/groqClient");
 const { RCA_SYSTEM_PROMPT, buildRcaUserPrompt } = require("./prompts");
 
 const VALID_CONFIDENCES = new Set(["HIGH", "MEDIUM", "LOW"]);
