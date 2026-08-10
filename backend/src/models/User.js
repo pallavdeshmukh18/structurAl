@@ -22,17 +22,14 @@ const userSchema = new mongoose.Schema(
       github: {
         id: {
           type: String,
-          default: null,
         },
         username: {
           type: String,
-          default: null,
         },
       },
       google: {
         id: {
           type: String,
-          default: null,
         },
       },
     },

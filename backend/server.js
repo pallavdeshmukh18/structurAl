@@ -6,6 +6,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const sessionConfig = require("./src/config/session");
 const authRoutes = require("./src/modules/auth/auth.routes");
+const repositoryRoutes = require("./src/modules/repository/repository.routes");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use(sessionConfig);
 
 app.use("/api/auth", authRoutes);
+app.use("/api/repositories", repositoryRoutes);
 
 app.get("/", (req, res) => {
     res.json({

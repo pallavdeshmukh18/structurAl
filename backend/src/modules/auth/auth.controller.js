@@ -1,4 +1,6 @@
 const User = require("../../models/User");
+const GitHubCredential = require("../../models/GitHubCredential");
+const { encrypt } = require("../../utils/encryption");
 
 /**
  * Redirect user to GitHub OAuth authorization screen
@@ -6,7 +8,7 @@ const User = require("../../models/User");
 const redirectToGitHub = (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const redirectUri = process.env.GITHUB_CALLBACK_URL;
-  const scope = "read:user user:email";
+  const scope = "read:user user:email repo";
 
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
     clientId
@@ -140,7 +142,15 @@ const handleGitHubCallback = async (req, res) => {
       });
     }
 
-    // 5. Establish session
+    // 5. Encrypt and persist GitHub access token securely
+    const accessTokenEncrypted = encrypt(accessToken);
+    await GitHubCredential.findOneAndUpdate(
+      { userId: user._id },
+      { accessTokenEncrypted },
+      { upsert: true, returnDocument: "after" }
+    );
+
+    // 6. Establish session
     req.session.userId = user._id.toString();
 
     req.session.save((err) => {
