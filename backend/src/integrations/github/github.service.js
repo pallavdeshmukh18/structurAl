@@ -46,11 +46,43 @@ const getRepository = async (userId, owner, repo) => {
 };
 
 /**
+ * Get branch details for specified user
+ */
+const getBranch = async (userId, owner, repo, branch) => {
+  const client = await getClientForUser(userId);
+  return await client.getBranch(owner, repo, branch);
+};
+
+/**
+ * Get commit details for specified user
+ */
+const getCommit = async (userId, owner, repo, ref) => {
+  const client = await getClientForUser(userId);
+  return await client.getCommit(owner, repo, ref);
+};
+
+/**
+ * Get git tree for specified user
+ */
+const getGitTree = async (userId, owner, repo, treeSha, recursive = true) => {
+  const client = await getClientForUser(userId);
+  return await client.getGitTree(owner, repo, treeSha, recursive);
+};
+
+/**
+ * Get blob content for specified user
+ */
+const getGitBlob = async (userId, owner, repo, fileSha) => {
+  const client = await getClientForUser(userId);
+  return await client.getGitBlob(owner, repo, fileSha);
+};
+
+/**
  * Get repository contents for specified user
  */
-const getRepositoryContents = async (userId, owner, repo, path = "") => {
+const getRepositoryContents = async (userId, owner, repo, path = "", ref = null) => {
   const client = await getClientForUser(userId);
-  return await client.getRepositoryContents(owner, repo, path);
+  return await client.getRepositoryContents(owner, repo, path, ref);
 };
 
 /**
@@ -74,6 +106,10 @@ module.exports = {
   getCurrentUser,
   getUserRepositories,
   getRepository,
+  getBranch,
+  getCommit,
+  getGitTree,
+  getGitBlob,
   getRepositoryContents,
   getPullRequest,
   getPullRequestFiles,

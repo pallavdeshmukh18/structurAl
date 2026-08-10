@@ -96,13 +96,84 @@ class GitHubClient {
   }
 
   /**
+   * Get branch details including latest commit SHA
+   * GET /repos/{owner}/{repo}/branches/{branch}
+   * @param {string} owner
+   * @param {string} repo
+   * @param {string} branch
+   */
+  async getBranch(owner, repo, branch) {
+    if (!owner || !repo || !branch) {
+      throw new Error("getBranch requires 'owner', 'repo', and 'branch' parameters.");
+    }
+    const cleanOwner = encodeURIComponent(owner);
+    const cleanRepo = encodeURIComponent(repo);
+    const cleanBranch = encodeURIComponent(branch);
+    return await this.#request(`/repos/${cleanOwner}/${cleanRepo}/branches/${cleanBranch}`);
+  }
+
+  /**
+   * Get commit details
+   * GET /repos/{owner}/{repo}/commits/{ref}
+   * @param {string} owner
+   * @param {string} repo
+   * @param {string} ref
+   */
+  async getCommit(owner, repo, ref) {
+    if (!owner || !repo || !ref) {
+      throw new Error("getCommit requires 'owner', 'repo', and 'ref' parameters.");
+    }
+    const cleanOwner = encodeURIComponent(owner);
+    const cleanRepo = encodeURIComponent(repo);
+    const cleanRef = encodeURIComponent(ref);
+    return await this.#request(`/repos/${cleanOwner}/${cleanRepo}/commits/${cleanRef}`);
+  }
+
+  /**
+   * Get Git Tree (optionally recursive) for commit/tree SHA
+   * GET /repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=1
+   * @param {string} owner
+   * @param {string} repo
+   * @param {string} treeSha
+   * @param {boolean} [recursive=true]
+   */
+  async getGitTree(owner, repo, treeSha, recursive = true) {
+    if (!owner || !repo || !treeSha) {
+      throw new Error("getGitTree requires 'owner', 'repo', and 'treeSha' parameters.");
+    }
+    const cleanOwner = encodeURIComponent(owner);
+    const cleanRepo = encodeURIComponent(repo);
+    const cleanTreeSha = encodeURIComponent(treeSha);
+    const query = recursive ? "?recursive=1" : "";
+    return await this.#request(`/repos/${cleanOwner}/${cleanRepo}/git/trees/${cleanTreeSha}${query}`);
+  }
+
+  /**
+   * Get Git Blob content by blob SHA
+   * GET /repos/{owner}/{repo}/git/blobs/{file_sha}
+   * @param {string} owner
+   * @param {string} repo
+   * @param {string} fileSha
+   */
+  async getGitBlob(owner, repo, fileSha) {
+    if (!owner || !repo || !fileSha) {
+      throw new Error("getGitBlob requires 'owner', 'repo', and 'fileSha' parameters.");
+    }
+    const cleanOwner = encodeURIComponent(owner);
+    const cleanRepo = encodeURIComponent(repo);
+    const cleanBlobSha = encodeURIComponent(fileSha);
+    return await this.#request(`/repos/${cleanOwner}/${cleanRepo}/git/blobs/${cleanBlobSha}`);
+  }
+
+  /**
    * Get contents of a file or directory in a repository
    * GET /repos/{owner}/{repo}/contents/{path}
    * @param {string} owner
    * @param {string} repo
    * @param {string} [path=""]
+   * @param {string} [ref]
    */
-  async getRepositoryContents(owner, repo, path = "") {
+  async getRepositoryContents(owner, repo, path = "", ref = null) {
     if (!owner || !repo) {
       throw new Error("getRepositoryContents requires both 'owner' and 'repo' parameters.");
     }
@@ -115,9 +186,13 @@ class GitHubClient {
       .map(encodeURIComponent)
       .join("/");
 
-    const endpoint = cleanPath
+    let endpoint = cleanPath
       ? `/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}`
       : `/repos/${cleanOwner}/${cleanRepo}/contents`;
+
+    if (ref) {
+      endpoint += `?ref=${encodeURIComponent(ref)}`;
+    }
 
     return await this.#request(endpoint);
   }

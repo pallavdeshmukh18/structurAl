@@ -35,6 +35,12 @@ app.use("/api/webhooks", webhookRoutes);
 app.get("/", (req, res) => {
     res.json({
         message: "StructurAI backend is running 🚀",
+        endpoints: {
+            auth: "/api/auth",
+            repositories: "/api/repositories",
+            webhooks: "/api/webhooks/github",
+            health: "/api/health",
+        },
     });
 });
 
