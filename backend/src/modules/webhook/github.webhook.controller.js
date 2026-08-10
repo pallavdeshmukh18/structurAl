@@ -1,5 +1,6 @@
 const Repository = require("../../models/Repository");
 const { triggerRepositoryIndexing } = require("../indexer/indexer.service");
+const { sanitizeError } = require("../../utils/sanitizer");
 
 /**
  * Handle incoming GitHub Webhooks after signature verification
@@ -20,6 +21,18 @@ const handleGitHubWebhook = async (req, res) => {
       const commitSha = req.body ? req.body.after || (req.body.head_commit && req.body.head_commit.id) : null;
       const ref = req.body ? req.body.ref : null;
 
+      // 1. Branch Deletion Check: SHA "0000000000000000000000000000000000000000" represents branch deletion
+      if (!commitSha || commitSha === "0000000000000000000000000000000000000000") {
+        console.log(`[WEBHOOK] Push ignored due to branch deletion for repository: ${repositoryFullName}`);
+        return res.status(200).json({
+          received: true,
+          event,
+          deliveryId,
+          repository: repositoryFullName,
+          status: "ignored_branch_deletion",
+        });
+      }
+
       if (!githubId) {
         return res.status(200).json({
           received: true,
@@ -30,7 +43,7 @@ const handleGitHubWebhook = async (req, res) => {
         });
       }
 
-      // Lookup matching Repository connected to StructurAI
+      // 2. Lookup matching Repository connected to StructurAI
       const repoDoc = await Repository.findOne({ "github.id": githubId });
 
       if (!repoDoc) {
@@ -44,13 +57,14 @@ const handleGitHubWebhook = async (req, res) => {
         });
       }
 
-      // Asynchronously trigger indexing without blocking HTTP response
+      // 3. Asynchronously trigger indexing without blocking HTTP response
       triggerRepositoryIndexing({
         repositoryId: repoDoc._id,
         commitSha,
         ref,
       }).catch((err) => {
-        console.error(`[WEBHOOK ERROR] Asynchronous indexing trigger failed for repo ${repoDoc._id}:`, err.message);
+        const safeErr = sanitizeError(err.message || err);
+        console.error(`[WEBHOOK ERROR] Asynchronous indexing trigger failed for repo ${repoDoc._id}:`, safeErr);
       });
 
       return res.status(200).json({
@@ -70,8 +84,9 @@ const handleGitHubWebhook = async (req, res) => {
       repository: repositoryFullName,
     });
   } catch (error) {
-    console.error("Error handling GitHub webhook event:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+    const safeMsg = sanitizeError(error.message || error);
+    console.error("[WEBHOOK ERROR] Failed processing GitHub webhook:", safeMsg);
+    return res.status(500).json({ error: safeMsg || "Internal server error" });
   }
 };
 

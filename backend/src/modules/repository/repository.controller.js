@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 const Repository = require("../../models/Repository");
+const RepositorySnapshot = require("../../models/RepositorySnapshot");
+const CodeSymbol = require("../../models/CodeSymbol");
+const CodeRelation = require("../../models/CodeRelation");
 const githubService = require("../../integrations/github/github.service");
+const { indexerService } = require("../../services/indexer.service");
 
 /**
  * List repositories accessible to the user via GitHub API
@@ -123,8 +127,131 @@ const getRepositoryById = async (req, res) => {
   }
 };
 
+/**
+ * Trigger Repository Indexing Pipeline
+ * POST /api/repositories/:id/index
+ */
+const triggerRepositoryIndexing = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found or access denied." });
+    }
+
+    const result = await indexerService.indexRepository(repoId, req.body || {});
+    return res.json({ message: "Repository indexed successfully", result });
+  } catch (error) {
+    console.error("Error indexing repository:", error.message);
+    return res.status(500).json({ error: error.message || "Failed to index repository" });
+  }
+};
+
+/**
+ * Get snapshots for a repository
+ * GET /api/repositories/:id/snapshots
+ */
+const getRepositorySnapshots = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const snapshots = await RepositorySnapshot.find({ repositoryId: repoId }).sort({ createdAt: -1 });
+    return res.json({ snapshots });
+  } catch (error) {
+    console.error("Error fetching repository snapshots:", error.message);
+    return res.status(500).json({ error: "Failed to fetch snapshots" });
+  }
+};
+
+/**
+ * Get symbols for a repository/snapshot
+ * GET /api/repositories/:id/symbols
+ */
+const getRepositorySymbols = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+    const { snapshotId, filePath, type } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const query = { repositoryId: repoId };
+    if (snapshotId) query.snapshotId = snapshotId;
+    if (filePath) query.filePath = filePath;
+    if (type) query["symbol.type"] = type;
+
+    const symbols = await CodeSymbol.find(query).limit(500);
+    return res.json({ count: symbols.length, symbols });
+  } catch (error) {
+    console.error("Error fetching repository symbols:", error.message);
+    return res.status(500).json({ error: "Failed to fetch symbols" });
+  }
+};
+
+/**
+ * Get relations for a repository/snapshot
+ * GET /api/repositories/:id/relations
+ */
+const getRepositoryRelations = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+    const { snapshotId, relationType } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const query = { repositoryId: repoId };
+    if (snapshotId) query.snapshotId = snapshotId;
+    if (relationType) query.relationType = relationType;
+
+    const relations = await CodeRelation.find(query)
+      .populate("sourceSymbolId")
+      .populate("targetSymbolId")
+      .limit(500);
+
+    return res.json({ count: relations.length, relations });
+  } catch (error) {
+    console.error("Error fetching repository relations:", error.message);
+    return res.status(500).json({ error: "Failed to fetch relations" });
+  }
+};
+
 module.exports = {
   listUserRepositories,
   connectRepository,
   getRepositoryById,
+  triggerRepositoryIndexing,
+  getRepositorySnapshots,
+  getRepositorySymbols,
+  getRepositoryRelations,
 };
