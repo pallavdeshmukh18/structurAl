@@ -7,6 +7,7 @@ const connectDB = require("./config/db");
 const sessionConfig = require("./src/config/session");
 const authRoutes = require("./src/modules/auth/auth.routes");
 const repositoryRoutes = require("./src/modules/repository/repository.routes");
+const webhookRoutes = require("./src/modules/webhook/github.webhook.routes");
 
 const app = express();
 
@@ -18,11 +19,18 @@ app.use(
         credentials: true,
     })
 );
-app.use(express.json());
+app.use(
+    express.json({
+        verify: (req, res, buf) => {
+            req.rawBody = buf;
+        },
+    })
+);
 app.use(sessionConfig);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/repositories", repositoryRoutes);
+app.use("/api/webhooks", webhookRoutes);
 
 app.get("/", (req, res) => {
     res.json({
