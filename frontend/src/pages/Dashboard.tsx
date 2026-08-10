@@ -21,16 +21,26 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "../context/AuthContext";
 
-interface GitHubRepository {
-  id: number | string;
-  name: string;
-  fullName: string;
-  owner: string;
-  url: string;
+export interface DashboardRepository {
+  _id?: string;
+  id?: number | string;
+  github?: {
+    id: number | string;
+    owner: string;
+    name: string;
+    fullName: string;
+    url?: string;
+    cloneUrl?: string;
+    defaultBranch: string;
+  };
+  name?: string;
+  fullName?: string;
+  owner?: string;
+  url?: string;
   cloneUrl?: string;
-  defaultBranch: string;
-  language: string | null;
-  visibility: "public" | "private" | string;
+  defaultBranch?: string;
+  language?: string | null;
+  visibility?: "public" | "private" | string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -49,7 +59,7 @@ export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
+  const [repositories, setRepositories] = useState<DashboardRepository[]>([]);
   const [loadingRepos, setLoadingRepos] = useState<boolean>(true);
   const [repoError, setRepoError] = useState<string | null>(null);
   const [connectingId, setConnectingId] = useState<number | string | null>(null);
@@ -87,32 +97,35 @@ export function Dashboard() {
     }
   }, [user]);
 
-  const handleConnectRepository = async (repo: GitHubRepository) => {
-    setConnectingId(repo.id);
+  const handleConnectRepository = async (repo: DashboardRepository) => {
+    const targetId = repo._id || repo.id || repo.github?.id;
+    const owner = repo.github?.owner || repo.owner;
+    const name = repo.github?.name || repo.name;
+
+    setConnectingId(targetId || null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/repositories`, {
+      const response = await fetch(`${API_BASE_URL}/api/repositories/connect`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
         body: JSON.stringify({
-          owner: repo.owner,
-          name: repo.name,
+          owner,
+          name,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const mongoId = data.repository?._id || repo.id;
+        const mongoId = data.repository?._id || targetId;
         navigate(`/repository/${mongoId}`);
       } else {
-        // Fallback navigate to repo ID
-        navigate(`/repository/${repo.id}`);
+        navigate(`/repository/${targetId}`);
       }
     } catch (err) {
       console.error("Connect repo error:", err);
-      navigate(`/repository/${repo.id}`);
+      navigate(`/repository/${targetId}`);
     } finally {
       setConnectingId(null);
     }
@@ -239,64 +252,74 @@ export function Dashboard() {
           ) : (
             /* Repositories Grid */
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {repositories.map((repo) => (
-                <div
-                  key={repo.id}
-                  className="p-5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-base font-bold text-slate-900 truncate pr-2">
-                        {repo.name}
-                      </h3>
-                      <span className="flex items-center gap-1 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md">
-                        {repo.visibility === "private" ? (
-                          <Lock className="w-3 h-3 text-amber-600" />
-                        ) : (
-                          <Globe className="w-3 h-3 text-emerald-600" />
+              {repositories.map((repo) => {
+                const repoId = repo._id || repo.id || repo.github?.id || "";
+                const repoName = repo.github?.name || repo.name || "Repository";
+                const repoFullName = repo.github?.fullName || repo.fullName || repoName;
+                const repoVisibility = repo.visibility || "public";
+                const repoLanguage = repo.language;
+                const repoBranch = repo.github?.defaultBranch || repo.defaultBranch || "main";
+                const repoUrl = repo.github?.url || repo.url || "#";
+
+                return (
+                  <div
+                    key={repoId}
+                    className="p-5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between">
+                        <h3 className="text-base font-bold text-slate-900 truncate pr-2" title={repoName}>
+                          {repoName}
+                        </h3>
+                        <span className="flex items-center gap-1 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md capitalize">
+                          {repoVisibility === "private" ? (
+                            <Lock className="w-3 h-3 text-amber-600" />
+                          ) : (
+                            <Globe className="w-3 h-3 text-emerald-600" />
+                          )}
+                          {repoVisibility}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 truncate font-mono" title={repoFullName}>
+                        {repoFullName}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
+                        {repoLanguage && (
+                          <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 text-[11px]">
+                            {repoLanguage}
+                          </Badge>
                         )}
-                        {repo.visibility}
-                      </span>
+                        <span className="flex items-center text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                          <GitBranch className="w-3 h-3 mr-1 text-slate-400" />
+                          {repoBranch}
+                        </span>
+                      </div>
                     </div>
 
-                    <p className="text-xs text-slate-500 truncate font-mono">
-                      {repo.fullName}
-                    </p>
-
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      {repo.language && (
-                        <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 text-[11px]">
-                          {repo.language}
-                        </Badge>
-                      )}
-                      <span className="flex items-center text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                        <GitBranch className="w-3 h-3 mr-1 text-slate-400" />
-                        {repo.defaultBranch}
-                      </span>
+                    <div className="flex items-center justify-between pt-5 mt-4 border-t border-slate-100">
+                      <a
+                        href={repoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        GitHub
+                      </a>
+                      <Button
+                        size="sm"
+                        onClick={() => handleConnectRepository(repo)}
+                        disabled={connectingId === repoId}
+                        className="text-xs h-8 px-3"
+                      >
+                        {connectingId === repoId ? "Connecting..." : "Inspect"}
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between pt-5 mt-4 border-t border-slate-100">
-                    <a
-                      href={repo.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-1"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      GitHub
-                    </a>
-                    <Button
-                      size="sm"
-                      onClick={() => handleConnectRepository(repo)}
-                      disabled={connectingId === repo.id}
-                      className="text-xs h-8 px-3"
-                    >
-                      {connectingId === repo.id ? "Connecting..." : "Inspect"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
