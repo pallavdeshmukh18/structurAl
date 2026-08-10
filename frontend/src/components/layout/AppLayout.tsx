@@ -1,9 +1,11 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, AlertTriangle, GitPullRequest, Activity, FolderGit2, Settings } from "lucide-react";
+import { LayoutDashboard, AlertTriangle, GitPullRequest, Activity, FolderGit2, LogOut } from "lucide-react";
 import { Badge } from "../ui/Badge";
+import { useAuth } from "../../context/AuthContext";
 
 export function AppLayout() {
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -49,13 +51,13 @@ export function AppLayout() {
         </nav>
 
         <div className="p-4 border-t border-slate-200">
-          <Link
-            to="/settings"
-            className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          <button
+            onClick={logout}
+            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 font-medium transition-colors cursor-pointer"
           >
-            <Settings className="w-5 h-5 text-slate-400" />
-            <span>Settings</span>
-          </Link>
+            <LogOut className="w-5 h-5 text-rose-500" />
+            <span>Log Out</span>
+          </button>
         </div>
       </aside>
 
@@ -72,9 +74,21 @@ export function AppLayout() {
               <span className="text-sm font-medium text-slate-700">structurai/core-backend</span>
               <Badge variant="outline">main</Badge>
             </div>
-            <div className="h-8 w-8 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center">
-              <span className="text-xs font-medium text-slate-600">R</span>
-            </div>
+            {user && (
+              <div className="flex items-center space-x-3 pl-3 border-l border-slate-200">
+                <img
+                  src={user.avatarUrl || "https://github.com/ghost.png"}
+                  alt={user.name}
+                  className="h-8 w-8 rounded-full border border-slate-300 object-cover"
+                />
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-xs font-semibold text-slate-800">{user.name}</span>
+                  {user.providers?.github?.username && (
+                    <span className="text-[10px] text-indigo-600">@{user.providers.github.username}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </header>
         

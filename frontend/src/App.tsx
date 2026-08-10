@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { MarketingLayout } from "./components/layout/MarketingLayout";
+import { ProtectedRoute, GuestRoute } from "./components/ProtectedRoute";
 
 // Pages
 import { Landing } from "./pages/Landing";
@@ -19,26 +20,30 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Marketing Routes */}
+        {/* Public Marketing Routes */}
         <Route element={<MarketingLayout />}>
           <Route path="/" element={<Landing />} />
         </Route>
 
-        {/* Standalone Authentication Routes */}
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
+        {/* Guest-only Authentication Routes (Redirects authenticated users to /dashboard) */}
+        <Route element={<GuestRoute />}>
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+        </Route>
 
-        {/* Application Dashboard & Feature Routes */}
-        <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/incidents" element={<IncidentList />} />
-          <Route path="/incidents/:id" element={<IncidentDetail />} />
-          <Route path="/repository/:id" element={<Repository />} />
-          <Route path="/repo" element={<Repository />} />
-          <Route path="/pr-review" element={<PRReview />} />
-          <Route path="/pr/:id" element={<PRReview />} />
-          <Route path="/code-health" element={<CodeHealth />} />
-          <Route path="/health" element={<CodeHealth />} />
+        {/* Protected Application Dashboard & Feature Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/incidents" element={<IncidentList />} />
+            <Route path="/incidents/:id" element={<IncidentDetail />} />
+            <Route path="/repository/:id" element={<Repository />} />
+            <Route path="/repo" element={<Repository />} />
+            <Route path="/pr-review" element={<PRReview />} />
+            <Route path="/pr/:id" element={<PRReview />} />
+            <Route path="/code-health" element={<CodeHealth />} />
+            <Route path="/health" element={<CodeHealth />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

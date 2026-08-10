@@ -1,9 +1,41 @@
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/Card";
-import { Activity, ShieldAlert, GitPullRequest, Code2, ArrowUpRight, ArrowDownRight, Clock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
+import {
+  Activity,
+  ShieldAlert,
+  GitPullRequest,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock,
+  ExternalLink,
+  GitBranch,
+  FolderGit2,
+  Lock,
+  Globe,
+  RefreshCw,
+  AlertCircle
+} from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useAuth } from "../context/AuthContext";
 
-const mockData = [
+interface GitHubRepository {
+  id: number | string;
+  name: string;
+  fullName: string;
+  owner: string;
+  url: string;
+  cloneUrl?: string;
+  defaultBranch: string;
+  language: string | null;
+  visibility: "public" | "private" | string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+
+const mockActivityData = [
   { name: "Mon", incidents: 4, PRs: 12 },
   { name: "Tue", incidents: 3, PRs: 18 },
   { name: "Wed", incidents: 7, PRs: 15 },
@@ -14,20 +46,116 @@ const mockData = [
 ];
 
 export function Dashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState<boolean>(true);
+  const [repoError, setRepoError] = useState<string | null>(null);
+  const [connectingId, setConnectingId] = useState<number | string | null>(null);
+
+  const fetchRepositories = async () => {
+    setLoadingRepos(true);
+    setRepoError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/repositories`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRepositories(data.repositories || []);
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        setRepoError(errData.error || "Failed to fetch repositories from GitHub.");
+      }
+    } catch (err) {
+      console.error("Error fetching repositories:", err);
+      setRepoError("Network error. Unable to reach backend server.");
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchRepositories();
+    }
+  }, [user]);
+
+  const handleConnectRepository = async (repo: GitHubRepository) => {
+    setConnectingId(repo.id);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/repositories`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          owner: repo.owner,
+          name: repo.name,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const mongoId = data.repository?._id || repo.id;
+        navigate(`/repository/${mongoId}`);
+      } else {
+        // Fallback navigate to repo ID
+        navigate(`/repository/${repo.id}`);
+      }
+    } catch (err) {
+      console.error("Connect repo error:", err);
+      navigate(`/repository/${repo.id}`);
+    } finally {
+      setConnectingId(null);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Overview of your repository health and recent activity.</p>
+    <div className="space-y-8">
+      {/* Header with Authenticated GitHub Identity */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Welcome back, {user?.name || "Developer"}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Overview of your connected repositories, codebase health, and trace incidents.
+          </p>
+        </div>
+        {user && (
+          <div className="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <img
+              src={user.avatarUrl || "https://github.com/ghost.png"}
+              alt={user.name}
+              className="w-10 h-10 rounded-full border border-slate-300 object-cover"
+            />
+            <div className="flex flex-col text-left">
+              <span className="text-sm font-semibold text-slate-900">{user.name}</span>
+              {user.providers?.github?.username && (
+                <span className="text-xs font-medium text-indigo-600">
+                  @{user.providers.github.username}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Stats row */}
+      {/* Stats Row */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: "Active Incidents", value: "3", icon: ShieldAlert, trend: "+2 from yesterday", trendType: "up", color: "text-rose-600" },
+          { title: "Connected Repositories", value: loadingRepos ? "..." : String(repositories.length), icon: FolderGit2, trend: "GitHub Live Sync", trendType: "up", color: "text-indigo-600" },
           { title: "Code Health Score", value: "92/100", icon: Activity, trend: "+1.2% this week", trendType: "up", color: "text-emerald-600" },
           { title: "Pending PR Reviews", value: "8", icon: GitPullRequest, trend: "-3 from yesterday", trendType: "down", color: "text-indigo-600" },
-          { title: "AI Slop Detected", value: "14", icon: Code2, trend: "-2% this week", trendType: "down", color: "text-amber-500" },
+          { title: "Active Incidents", value: "3", icon: ShieldAlert, trend: "+2 from yesterday", trendType: "up", color: "text-rose-600" },
         ].map((stat, i) => (
           <Card key={i}>
             <CardContent className="p-6">
@@ -51,6 +179,130 @@ export function Dashboard() {
         ))}
       </div>
 
+      {/* Repositories Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <FolderGit2 className="w-5 h-5 text-indigo-600" />
+              GitHub Repositories
+            </CardTitle>
+            <CardDescription>
+              Accessible repositories via your authenticated GitHub OAuth token.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchRepositories}
+            disabled={loadingRepos}
+            className="flex items-center gap-2 text-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingRepos ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </CardHeader>
+
+        <CardContent>
+          {loadingRepos ? (
+            /* Loading State */
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 py-6">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 animate-pulse">
+                  <div className="h-4 bg-slate-200 rounded w-3/4" />
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
+                  <div className="flex gap-2 pt-2">
+                    <div className="h-5 bg-slate-200 rounded w-16" />
+                    <div className="h-5 bg-slate-200 rounded w-16" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : repoError ? (
+            /* Error State */
+            <div className="p-6 rounded-xl border border-rose-200 bg-rose-50 text-center space-y-3">
+              <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
+              <p className="text-sm font-medium text-rose-800">{repoError}</p>
+              <Button variant="outline" size="sm" onClick={fetchRepositories} className="bg-white text-xs">
+                Try Again
+              </Button>
+            </div>
+          ) : repositories.length === 0 ? (
+            /* Empty State */
+            <div className="py-12 text-center space-y-3">
+              <FolderGit2 className="w-12 h-12 text-slate-300 mx-auto" />
+              <h3 className="text-base font-semibold text-slate-800">No Repositories Found</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                No repositories were returned from your GitHub account. Ensure your OAuth permissions allow access.
+              </p>
+            </div>
+          ) : (
+            /* Repositories Grid */
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {repositories.map((repo) => (
+                <div
+                  key={repo.id}
+                  className="p-5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-base font-bold text-slate-900 truncate pr-2">
+                        {repo.name}
+                      </h3>
+                      <span className="flex items-center gap-1 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md">
+                        {repo.visibility === "private" ? (
+                          <Lock className="w-3 h-3 text-amber-600" />
+                        ) : (
+                          <Globe className="w-3 h-3 text-emerald-600" />
+                        )}
+                        {repo.visibility}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-500 truncate font-mono">
+                      {repo.fullName}
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      {repo.language && (
+                        <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 text-[11px]">
+                          {repo.language}
+                        </Badge>
+                      )}
+                      <span className="flex items-center text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                        <GitBranch className="w-3 h-3 mr-1 text-slate-400" />
+                        {repo.defaultBranch}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-5 mt-4 border-t border-slate-100">
+                    <a
+                      href={repo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      GitHub
+                    </a>
+                    <Button
+                      size="sm"
+                      onClick={() => handleConnectRepository(repo)}
+                      disabled={connectingId === repo.id}
+                      className="text-xs h-8 px-3"
+                    >
+                      {connectingId === repo.id ? "Connecting..." : "Inspect"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Analytics Chart & Incidents Row */}
       <div className="grid gap-6 md:grid-cols-7">
         {/* Chart */}
         <Card className="md:col-span-4">
@@ -61,7 +313,7 @@ export function Dashboard() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mockData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={mockActivityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorIncidents" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
