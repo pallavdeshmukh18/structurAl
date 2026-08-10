@@ -13,10 +13,13 @@ import {
   Video,
   Calendar,
   Sparkles,
+  MessageSquare,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { GroupReviewRoom } from "../components/review/GroupReviewRoom";
 import { ScheduleMeetingModal } from "../components/review/ScheduleMeetingModal";
+import { PRChatPanel } from "../components/chat/PRChatPanel";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
 
@@ -29,6 +32,8 @@ export function PRReview() {
   const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Agora Live Review Call States
   const [activeChannel, setActiveChannel] = useState<string | null>(
@@ -100,12 +105,12 @@ export function PRReview() {
   const deletions = safeFiles.reduce((sum, f) => sum + (f?.deletions || 0), 0);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Back Link */}
-      <Link
-        to={`/repository/${repoId}`}
-        className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
-      >
+    <>
+      <div className={`space-y-6 max-w-6xl mx-auto p-6 transition-all duration-300 ${chatOpen ? 'mr-[320px]' : ''}`}>
+        <Link
+          to={`/repository/${repoId}`}
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+        >
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Repository
       </Link>
 
@@ -339,7 +344,6 @@ export function PRReview() {
           </Card>
         </div>
       </div>
-
       {/* Schedule Meeting Modal */}
       <ScheduleMeetingModal
         isOpen={isMeetingModalOpen}
@@ -350,6 +354,31 @@ export function PRReview() {
         prTitle={pullRequest.title}
         onStartInstantMeeting={(channel) => setActiveChannel(channel)}
       />
+      
+      {/* Floating Chat Panel */}
+      <div 
+        className={`fixed top-16 bottom-0 right-0 z-40 transform transition-transform duration-300 ease-in-out ${chatOpen ? "translate-x-0 shadow-2xl" : "translate-x-full"}`}
+      >
+        {repoId && prNumber && (
+          <PRChatPanel 
+            repoId={repoId} 
+            prNumber={prNumber} 
+            onClose={() => setChatOpen(false)} 
+          />
+        )}
+      </div>
+
+      {/* Floating Toggle Button */}
+      {!chatOpen && (
+        <button 
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-8 right-8 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 transition-all hover:scale-105 z-50 animate-bounce-short"
+          title="Open Discussions"
+        >
+          <MessageCircle className="w-6 h-6" />
+        </button>
+      )}
     </div>
+    </>
   );
 }
