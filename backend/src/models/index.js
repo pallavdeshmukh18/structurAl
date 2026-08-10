@@ -10,6 +10,7 @@ const PullRequest = require("./PullRequest");
 const Review = require("./Review");
 const ReviewFinding = require("./ReviewFinding");
 const Patch = require("./Patch");
+const Meeting = require("./Meeting");
 
 module.exports = {
   User,
@@ -24,4 +25,5 @@ module.exports = {
   Review,
   ReviewFinding,
   Patch,
+  Meeting,
 };
