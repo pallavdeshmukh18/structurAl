@@ -198,6 +198,36 @@ class GitHubClient {
   }
 
   /**
+   * Get list of pull requests
+   * GET /repos/{owner}/{repo}/pulls
+   * @param {string} owner
+   * @param {string} repo
+   * @param {object} [options={}] { state, sort, direction, page, per_page }
+   */
+  async getPullRequests(owner, repo, options = {}) {
+    if (!owner || !repo) {
+      throw new Error("getPullRequests requires both 'owner' and 'repo' parameters.");
+    }
+    const cleanOwner = encodeURIComponent(owner);
+    const cleanRepo = encodeURIComponent(repo);
+
+    const params = new URLSearchParams();
+    const allowedParams = ["state", "sort", "direction", "page", "per_page"];
+    for (const key of allowedParams) {
+      if (options[key] !== undefined && options[key] !== null) {
+        params.append(key, String(options[key]));
+      }
+    }
+
+    const queryString = params.toString();
+    const endpoint = `/repos/${cleanOwner}/${cleanRepo}/pulls${
+      queryString ? `?${queryString}` : ""
+    }`;
+
+    return await this.#request(endpoint);
+  }
+
+  /**
    * Get details of a pull request
    * GET /repos/{owner}/{repo}/pulls/{number}
    * @param {string} owner

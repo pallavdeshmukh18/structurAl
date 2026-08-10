@@ -86,6 +86,14 @@ const getRepositoryContents = async (userId, owner, repo, path = "", ref = null)
 };
 
 /**
+ * Get list of pull requests for specified user
+ */
+const getPullRequests = async (userId, owner, repo, options = {}) => {
+  const client = await getClientForUser(userId);
+  return await client.getPullRequests(owner, repo, options);
+};
+
+/**
  * Get pull request details for specified user
  */
 const getPullRequest = async (userId, owner, repo, number) => {
@@ -111,6 +119,7 @@ module.exports = {
   getGitTree,
   getGitBlob,
   getRepositoryContents,
+  getPullRequests,
   getPullRequest,
   getPullRequestFiles,
 };

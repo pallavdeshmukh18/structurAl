@@ -277,6 +277,140 @@ const getRepositoryRelations = async (req, res) => {
   }
 };
 
+/**
+ * Get the file tree for a repository
+ * GET /api/repositories/:id/tree?path=...
+ */
+const getRepositoryTree = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+    const path = req.query.path || "";
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const { owner, name, defaultBranch } = repository.github;
+    
+    // Get the full recursive tree for the default branch
+    const treeData = await githubService.getGitTree(userId, owner, name, defaultBranch, true);
+
+    return res.json({ tree: treeData.tree || [] });
+  } catch (error) {
+    console.error("Error fetching repository tree:", error.message);
+    return res.status(500).json({ error: "Failed to fetch repository tree" });
+  }
+};
+
+/**
+ * Get file content for a repository
+ * GET /api/repositories/:id/contents?path=...
+ */
+const getRepositoryFileContent = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+    const path = req.query.path;
+
+    if (!path) {
+      return res.status(400).json({ error: "Path parameter is required" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const { owner, name, defaultBranch } = repository.github;
+    const contents = await githubService.getRepositoryContents(userId, owner, name, path, defaultBranch);
+
+    if (Array.isArray(contents)) {
+      return res.status(400).json({ error: "Requested path is a directory, not a file" });
+    }
+
+    // GitHub API returns base64 encoded content
+    const fileContent = contents.content 
+      ? Buffer.from(contents.content, 'base64').toString('utf8')
+      : "";
+
+    return res.json({ content: fileContent, metadata: contents });
+  } catch (error) {
+    console.error("Error fetching repository file contents:", error.message);
+    return res.status(500).json({ error: "Failed to fetch file contents" });
+  }
+};
+
+/**
+ * Get list of pull requests for a repository
+ * GET /api/repositories/:id/pulls
+ */
+const getRepositoryPullRequests = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const { owner, name } = repository.github;
+    const pulls = await githubService.getPullRequests(userId, owner, name, req.query);
+
+    return res.json({ pulls });
+  } catch (error) {
+    console.error("Error fetching repository pull requests:", error.message);
+    return res.status(500).json({ error: "Failed to fetch pull requests" });
+  }
+};
+
+/**
+ * Get details of a specific pull request
+ * GET /api/repositories/:id/pulls/:number
+ */
+const getRepositoryPullRequestDetails = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const repoId = req.params.id;
+    const prNumber = req.params.number;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    if (!repository) {
+      return res.status(404).json({ error: "Repository not found" });
+    }
+
+    const { owner, name } = repository.github;
+    
+    const [pullRequest, files] = await Promise.all([
+      githubService.getPullRequest(userId, owner, name, prNumber),
+      githubService.getPullRequestFiles(userId, owner, name, prNumber)
+    ]);
+
+    return res.json({ pullRequest, files });
+  } catch (error) {
+    console.error("Error fetching repository pull request details:", error.message);
+    return res.status(500).json({ error: "Failed to fetch pull request details" });
+  }
+};
+
 module.exports = {
   listUserRepositories,
   connectRepository,
@@ -285,4 +419,8 @@ module.exports = {
   getRepositorySnapshots,
   getRepositorySymbols,
   getRepositoryRelations,
+  getRepositoryTree,
+  getRepositoryFileContent,
+  getRepositoryPullRequests,
+  getRepositoryPullRequestDetails,
 };
