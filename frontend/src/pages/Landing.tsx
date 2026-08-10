@@ -3,6 +3,7 @@ import { Button } from "../components/ui/Button";
 import { ArrowRight, Activity, GitPullRequest, Code2, ShieldAlert, Server, Cpu, Code, Download, Puzzle } from "lucide-react";
 import { ReactFlow, Background, MarkerType } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
+import { useAuth } from "../context/AuthContext";
 
 const previewNodes = [
   { 
@@ -39,6 +40,9 @@ const previewEdges = [
 ];
 
 export function Landing() {
+  const { user } = useAuth();
+  const ctaLink = user ? "/dashboard" : "/signin";
+
   return (
     <div className="flex flex-col items-center">
       {/* Hero Section */}
@@ -54,9 +58,9 @@ export function Landing() {
           The premium developer platform that combines runtime execution monitoring, AI-powered root-cause analysis, and visual codebase intelligence.
         </p>
         <div className="relative z-10 flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <Link to="/signin">
+          <Link to={ctaLink}>
             <Button size="lg" className="h-14 px-8 text-lg rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2">
-              Start Debugging <ArrowRight className="w-5 h-5" />
+              {user ? "Open Dashboard" : "Start Debugging"} <ArrowRight className="w-5 h-5" />
             </Button>
           </Link>
           <a href="/extension.zip" download>
