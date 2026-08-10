@@ -11,6 +11,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { IncidentList } from "./pages/IncidentList";
 import { IncidentDetail } from "./pages/IncidentDetail";
 import { Repository } from "./pages/Repository";
+import { RepositoryVisualizer } from "./pages/RepositoryVisualizer";
 import { PRReview } from "./pages/PRReview";
 import { CodeHealth } from "./pages/CodeHealth";
 
@@ -38,6 +39,8 @@ function App() {
             <Route path="/incidents" element={<IncidentList />} />
             <Route path="/incidents/:id" element={<IncidentDetail />} />
             <Route path="/repository/:id" element={<Repository />} />
+            <Route path="/repository/:id/visualizer" element={<RepositoryVisualizer />} />
+            <Route path="/repository/visualizer" element={<RepositoryVisualizer />} />
             <Route path="/repo" element={<Repository />} />
             <Route path="/repository/:repoId/pr/:prNumber" element={<PRReview />} />
             <Route path="/code-health" element={<CodeHealth />} />

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, AlertTriangle, GitPullRequest, Activity, FolderGit2, LogOut } from "lucide-react";
+import { LayoutDashboard, AlertTriangle, GitPullRequest, Activity, FolderGit2, LogOut, Network } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { useAuth } from "../../context/AuthContext";
 
@@ -7,15 +7,25 @@ export function AppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  const repoMatch = location.pathname.match(/\/repository\/([^/]+)/);
-  const currentRepoId = repoMatch ? repoMatch[1] : null;
+  // Extract repo ID from location.pathname if currently inside /repository/:id or /repository/:id/visualizer
+  const repoIdMatch = location.pathname.match(/\/repository\/([^/]+)/);
+  const currentRepoId = repoIdMatch && repoIdMatch[1] !== "visualizer" ? repoIdMatch[1] : null;
+
+  const repoPath = currentRepoId ? `/repository/${currentRepoId}` : "/repo";
+  const visualizerPath = currentRepoId ? `/repository/${currentRepoId}/visualizer` : "/repository/visualizer";
+
+  const isVisualizerActive = location.pathname.includes("/visualizer");
+  const isRepoOverviewActive =
+    (location.pathname.startsWith("/repository") || location.pathname.startsWith("/repo")) &&
+    !isVisualizerActive;
 
   const navItems = [
-    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-    { name: "Incidents", path: "/incidents", icon: AlertTriangle },
-    { name: "Repository", path: currentRepoId ? `/repository/${currentRepoId}` : "/repo", icon: FolderGit2 },
-    { name: "PR Reviews", path: currentRepoId ? `/repository/${currentRepoId}?tab=prs` : "/repo?tab=prs", icon: GitPullRequest },
-    { name: "Code Health", path: "/health", icon: Activity },
+    { name: "Dashboard", path: "/dashboard", isActive: location.pathname.startsWith("/dashboard"), icon: LayoutDashboard },
+    { name: "Incidents", path: "/incidents", isActive: location.pathname.startsWith("/incidents"), icon: AlertTriangle },
+    { name: "Repository", path: repoPath, isActive: isRepoOverviewActive, icon: FolderGit2 },
+    { name: "Visualizer", path: visualizerPath, isActive: isVisualizerActive, icon: Network },
+    { name: "PR Reviews", path: currentRepoId ? `/repository/${currentRepoId}?tab=prs` : "/pr/1", isActive: location.pathname.includes("tab=prs") || location.pathname.startsWith("/pr"), icon: GitPullRequest },
+    { name: "Code Health", path: "/health", isActive: location.pathname.startsWith("/health") || location.pathname.startsWith("/code-health"), icon: Activity },
   ];
 
   return (
@@ -33,7 +43,6 @@ export function AppLayout() {
         
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path.split('/')[1] ? `/${item.path.split('/')[1]}` : item.path);
             const Icon = item.icon;
             
             return (
@@ -41,12 +50,12 @@ export function AppLayout() {
                 key={item.name}
                 to={item.path}
                 className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  isActive 
+                  item.isActive 
                     ? "bg-indigo-50 text-indigo-700 font-medium" 
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                <Icon className={`w-5 h-5 ${item.isActive ? "text-indigo-600" : "text-slate-400"}`} />
                 <span>{item.name}</span>
               </Link>
             );

@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { Card, CardHeader, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
-import { Folder, FileCode, GitCommit, Search, GitBranch, AlertCircle, ChevronRight, ChevronDown, GitPullRequest } from "lucide-react";
+import { Folder, FileCode, GitCommit, Search, GitBranch, AlertCircle, ChevronRight, ChevronDown, GitPullRequest, Network } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -145,6 +145,8 @@ export function Repository() {
     (searchParams.get("tab") as "code" | "prs") || "code"
   );
 
+  const visualizerUrl = id ? `/repository/${id}/visualizer` : "/repository/visualizer";
+
   // Sync state to URL if changed by clicking buttons
   useEffect(() => {
     if (activeTab === "prs") {
@@ -199,7 +201,6 @@ export function Repository() {
         
         const structuredTree = buildTree(treeData.tree);
         setFileTree(structuredTree);
-        
         
         // Fetch PRs
         const prRes = await fetch(`${API_BASE_URL}/api/repositories/${id}/pulls?state=open`, {
@@ -285,7 +286,17 @@ export function Repository() {
           </h1>
           <p className="text-slate-500 mt-1">Live synchronized codebase view.</p>
         </div>
-        <div className="flex space-x-3">
+
+        <div className="flex items-center space-x-3">
+          {/* Visualizer Page Navigation Button */}
+          <Link
+            to={visualizerUrl}
+            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center space-x-2 shadow-sm transition-colors"
+          >
+            <Network className="w-4 h-4" />
+            <span>Visualizer</span>
+          </Link>
+
           <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 flex items-center space-x-2">
             <GitBranch className="w-4 h-4 text-slate-400" />
             <span>{repoInfo?.defaultBranch || "main"}</span>
@@ -328,63 +339,63 @@ export function Repository() {
 
       {activeTab === "code" ? (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* File Tree Sidebar */}
-        <Card className="col-span-1 h-[650px] flex flex-col shadow-sm">
-          <CardHeader className="py-4 border-b border-slate-100 bg-slate-50/50">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Find file..." 
-                className="w-full pl-8 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm transition-shadow"
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="p-2 flex-1 overflow-auto bg-white -ml-2">
-            {fileTree ? (
-              <TreeNode node={fileTree} onSelectFile={handleSelectFile} activePath={activeFile} />
-            ) : (
-              <p className="text-sm text-slate-500 p-4 text-center">No files found.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Code Viewer / Main Content */}
-        <div className="col-span-1 lg:col-span-3 flex flex-col space-y-6">
-          <Card className="flex-1 flex flex-col overflow-hidden shadow-sm">
-            <CardHeader className="py-3 px-4 bg-slate-50/80 border-b border-slate-200 flex flex-row items-center justify-between space-y-0 backdrop-blur-sm">
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
-                <span className="font-semibold text-slate-900 truncate max-w-[400px]">
-                  {activeFile || "Select a file to view"}
-                </span>
+          {/* File Tree Sidebar */}
+          <Card className="col-span-1 h-[650px] flex flex-col shadow-sm">
+            <CardHeader className="py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Find file..." 
+                  className="w-full pl-8 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm transition-shadow"
+                />
               </div>
-              {activeFile && (
-                <div className="flex items-center text-xs text-slate-500 space-x-4">
-                  <span className="flex items-center text-emerald-600 font-medium">
-                    <GitCommit className="w-3 h-3 mr-1" /> Live from GitHub
-                  </span>
-                </div>
-              )}
             </CardHeader>
-            <CardContent className="p-0 flex-1 bg-[#1e2012] overflow-auto">
-              {contentLoading ? (
-                <div className="h-full flex items-center justify-center">
-                   <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              ) : activeFile ? (
-                <pre className="p-6 text-slate-300 font-mono text-[13px] leading-relaxed">
-                  <code>{fileContent}</code>
-                </pre>
+            <CardContent className="p-2 flex-1 overflow-auto bg-white -ml-2">
+              {fileTree ? (
+                <TreeNode node={fileTree} onSelectFile={handleSelectFile} activePath={activeFile} />
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
-                  <FileCode className="w-12 h-12 text-slate-400 opacity-50" />
-                  <p>Select a file from the sidebar to inspect the source code.</p>
-                </div>
+                <p className="text-sm text-slate-500 p-4 text-center">No files found.</p>
               )}
             </CardContent>
           </Card>
+
+          {/* Code Viewer / Main Content */}
+          <div className="col-span-1 lg:col-span-3 flex flex-col space-y-6">
+            <Card className="flex-1 flex flex-col overflow-hidden shadow-sm">
+              <CardHeader className="py-3 px-4 bg-slate-50/80 border-b border-slate-200 flex flex-row items-center justify-between space-y-0 backdrop-blur-sm">
+                <div className="flex items-center space-x-2 text-sm text-slate-600">
+                  <span className="font-semibold text-slate-900 truncate max-w-[400px]">
+                    {activeFile || "Select a file to view"}
+                  </span>
+                </div>
+                {activeFile && (
+                  <div className="flex items-center text-xs text-slate-500 space-x-4">
+                    <span className="flex items-center text-emerald-600 font-medium">
+                      <GitCommit className="w-3 h-3 mr-1" /> Live from GitHub
+                    </span>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="p-0 flex-1 bg-[#1e2012] overflow-auto">
+                {contentLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : activeFile ? (
+                  <pre className="p-6 text-slate-300 font-mono text-[13px] leading-relaxed">
+                    <code>{fileContent}</code>
+                  </pre>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
+                    <FileCode className="w-12 h-12 text-slate-400 opacity-50" />
+                    <p>Select a file from the sidebar to inspect the source code.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
       ) : (
         <div className="space-y-4">
           <Card>
