@@ -38,6 +38,10 @@ exports.getChannels = async (req, res) => {
   try {
     const { repoId, prNumber } = req.params;
 
+    if (!repoId || !mongoose.Types.ObjectId.isValid(repoId) || !prNumber) {
+      return res.json({ channels: [] });
+    }
+
     const channels = await PRChannel.find({
       repository: repoId,
       prNumber: parseInt(prNumber),

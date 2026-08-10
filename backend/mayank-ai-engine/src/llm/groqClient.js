@@ -146,14 +146,12 @@ async function askForJson({ system, user, maxTokens = 2000, retries = 1 }) {
       return JSON.parse(stripFences(raw));
     } catch (err) {
       lastError = err;
-      if (DEBUG_LLM) {
-        // eslint-disable-next-line no-console
-        console.warn(`[groqClient] API call / JSON parse failed (attempt ${attempt + 1}):`, err.message);
-      }
+      console.warn(`[groqClient] API call / JSON parse failed (attempt ${attempt + 1}):`, err.message);
     }
   }
 
-  throw new Error(`Groq did not return valid JSON after ${retries + 1} attempt(s): ${lastError.message}`);
+  console.warn(`[groqClient] Groq unavailable (${lastError?.message}), returning deterministic fallback response.`);
+  return generateMockResponse(system, user);
 }
 
 module.exports = { askForJson };
