@@ -17,6 +17,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Code2,
+  FolderGit2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { GroupReviewRoom } from "../components/review/GroupReviewRoom";
@@ -80,12 +81,16 @@ export function PRReview() {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
-  const repoId = params.repoId || searchParams.get("repoId") || undefined;
-  const prNumber = params.prNumber || params.id || searchParams.get("prNumber") || "77";
+  const urlRepoId = params.repoId || searchParams.get("repoId") || undefined;
+  const urlPrNumber = params.prNumber || params.id || searchParams.get("prNumber") || undefined;
+
+  const [repositories, setRepositories] = useState<any[]>([]);
+  const [selectedRepoId, setSelectedRepoId] = useState<string | undefined>(urlRepoId);
+  const [availablePRs, setAvailablePRs] = useState<any[]>([]);
+  const [selectedPRNumber, setSelectedPRNumber] = useState<string>(urlPrNumber || "77");
 
   const [pullRequest, setPullRequest] = useState<any>(MOCK_PR_DATA);
   const [files, setFiles] = useState<any[]>(MOCK_FILES);
-  const [repositories, setRepositories] = useState<any[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
 
   // AI Slop & Code Governance Analysis State
@@ -111,15 +116,22 @@ export function PRReview() {
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [isVideoDocked, setIsVideoDocked] = useState(false);
 
-  // Load repositories for project context
+  // 1. Load repositories for selector dropdown
   useEffect(() => {
     async function loadRepos() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/repositories`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.repositories)) {
+          if (Array.isArray(data.repositories) && data.repositories.length > 0) {
             setRepositories(data.repositories);
+            if (!selectedRepoId) {
+              const firstId =
+                data.repositories[0].indexing?.repositoryId ||
+                data.repositories[0]._id ||
+                data.repositories[0].github?.fullName;
+              setSelectedRepoId(firstId);
+            }
           }
         }
       } catch {
@@ -129,9 +141,37 @@ export function PRReview() {
     loadRepos();
   }, []);
 
-  // Fetch PR data
+  // 2. Fetch available PRs whenever selected repository changes
   useEffect(() => {
-    if (!repoId || !prNumber) {
+    if (!selectedRepoId) return;
+
+    async function fetchRepoPRs() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/repositories/${selectedRepoId}/pulls`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.pulls) && data.pulls.length > 0) {
+            setAvailablePRs(data.pulls);
+            // Default to first PR if current selectedPRNumber is not in list
+            const hasCurrent = data.pulls.some((p: any) => String(p.number) === selectedPRNumber);
+            if (!hasCurrent) {
+              setSelectedPRNumber(String(data.pulls[0].number));
+            }
+          }
+        }
+      } catch {
+        // Silently continue
+      }
+    }
+
+    fetchRepoPRs();
+  }, [selectedRepoId]);
+
+  // 3. Fetch PR data and diffs
+  useEffect(() => {
+    if (!selectedRepoId || !selectedPRNumber) {
       setPullRequest(MOCK_PR_DATA);
       setFiles(MOCK_FILES);
       return;
@@ -139,15 +179,42 @@ export function PRReview() {
 
     async function fetchPRData() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/repositories/${repoId}/pulls/${prNumber}`, {
-          credentials: "include",
-        });
+        const res = await fetch(
+          `${API_BASE_URL}/api/repositories/${selectedRepoId}/pulls/${selectedPRNumber}`,
+          { credentials: "include" }
+        );
 
         if (res.ok) {
           const data = await res.json();
           if (data.pullRequest) {
             setPullRequest(data.pullRequest);
-            setFiles(Array.isArray(data.files) ? data.files : MOCK_FILES);
+            const prFiles = Array.isArray(data.files) ? data.files : MOCK_FILES;
+            setFiles(prFiles);
+
+            // Auto-trigger AI scan on PR change
+            const combinedDiff = prFiles
+              .map((f: any) => f.patch || `--- a/${f.filename}\n+++ b/${f.filename}\n+ // modified`)
+              .join("\n\n");
+
+            fetch(`${API_BASE_URL}/api/pr/analyze`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                diff: combinedDiff || "--- a/index.js\n+++ b/index.js\n@@ -1,2 +1,4 @@\n+const token = true;\n",
+                prTitle: data.pullRequest.title,
+                prDescription: data.pullRequest.body || "",
+              }),
+            })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((aiData) => {
+                if (aiData) {
+                  if (typeof aiData.score === "number") setAiScore(aiData.score);
+                  const combined = [...(aiData.findings || []), ...(aiData.slopFindings || [])];
+                  if (combined.length > 0) setAiFindings(combined);
+                }
+              })
+              .catch(() => {});
+
             return;
           }
         }
@@ -160,13 +227,16 @@ export function PRReview() {
     }
 
     fetchPRData();
-  }, [repoId, prNumber, user]);
+  }, [selectedRepoId, selectedPRNumber, user]);
 
-  // Run Live AI PR Review & Slop Scan
+  // Run Live AI PR Review & Slop Scan manually
   const handleAnalyzePR = async () => {
     setIsAnalyzingPR(true);
     try {
-      const combinedDiff = files.map((f) => f.patch || `--- a/${f.filename}\n+++ b/${f.filename}\n+ // modified`).join("\n\n");
+      const combinedDiff = files
+        .map((f) => f.patch || `--- a/${f.filename}\n+++ b/${f.filename}\n+ // modified`)
+        .join("\n\n");
+
       const res = await fetch(`${API_BASE_URL}/api/pr/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,24 +271,61 @@ export function PRReview() {
   return (
     <>
       <div className={`space-y-6 max-w-7xl mx-auto pb-12 transition-all duration-300 ${chatOpen ? "mr-[320px]" : ""}`}>
-        {/* Top Breadcrumb & Navigation */}
-        <div className="flex items-center justify-between">
+        {/* Top Breadcrumb & Live Dynamic Repository / PR Switcher Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
           <Link
-            to={repoId ? `/repository/${repoId}` : "/dashboard"}
-            className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+            to={selectedRepoId ? `/repository/${selectedRepoId}` : "/dashboard"}
+            className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5" />
-            <span>{repoId ? "Back to Repository" : "Back to Dashboard"}</span>
+            <span>{selectedRepoId ? "Back to Repository" : "Back to Dashboard"}</span>
           </Link>
 
-          {repositories.length > 0 && (
-            <div className="flex items-center space-x-2 text-xs text-slate-600">
-              <span className="font-medium">Active Repo:</span>
-              <span className="font-semibold text-slate-900 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
-                {repositories[0]?.fullName || "structurai/core-backend"}
-              </span>
+          <div className="flex items-center flex-wrap gap-2.5">
+            {/* Repository Selector */}
+            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs shadow-inner">
+              <FolderGit2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="text-slate-500 font-medium">Repo:</span>
+              <select
+                value={selectedRepoId || ""}
+                onChange={(e) => setSelectedRepoId(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+              >
+                {repositories.map((r) => {
+                  const id = r.indexing?.repositoryId || r._id || r.github?.fullName || r.github?.id;
+                  const name = r.github?.fullName || r.github?.name || r.name || "Repository";
+                  return (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
-          )}
+
+            {/* Dynamic Pull Request Switcher */}
+            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs shadow-inner">
+              <GitPullRequest className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="text-slate-500 font-medium">PR:</span>
+              <select
+                value={selectedPRNumber || ""}
+                onChange={(e) => setSelectedPRNumber(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer max-w-[220px] truncate"
+              >
+                {availablePRs.length > 0 ? (
+                  availablePRs.map((pr) => (
+                    <option key={pr.number} value={String(pr.number)}>
+                      #{pr.number} - {pr.title.slice(0, 32)}...
+                    </option>
+                  ))
+                ) : (
+                  <option value={selectedPRNumber}>
+                    #{selectedPRNumber} - {pullRequest.title.slice(0, 32)}...
+                  </option>
+                )}
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Header Banner with Video Chat CTA */}
@@ -231,7 +338,7 @@ export function PRReview() {
               <div>
                 <div className="flex items-center space-x-2.5">
                   <h1 className="text-xl font-bold tracking-tight text-white">{pullRequest.title}</h1>
-                  <span className="text-xl text-indigo-400 font-mono">#{pullRequest.number || prNumber}</span>
+                  <span className="text-xl text-indigo-400 font-mono">#{pullRequest.number || selectedPRNumber}</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Authored by <span className="text-slate-200 font-medium">{pullRequest.user?.login || "alex-dev"}</span> into branch{" "}
@@ -251,7 +358,7 @@ export function PRReview() {
                   variant="primary"
                   onClick={() =>
                     setActiveChannel(
-                      `pr-${pullRequest.number || prNumber}-review-${Date.now().toString(36).slice(-4)}`
+                      `pr-${pullRequest.number || selectedPRNumber}-review-${Date.now().toString(36).slice(-4)}`
                     )
                   }
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center space-x-2 shadow-lg shadow-emerald-600/30 px-4 py-2.5 rounded-xl cursor-pointer"
@@ -292,7 +399,7 @@ export function PRReview() {
           <div className="animate-in fade-in slide-in-from-top-4 duration-300">
             <GroupReviewRoom
               channelName={activeChannel}
-              prNumber={pullRequest.number || parseInt(prNumber, 10)}
+              prNumber={pullRequest.number || parseInt(selectedPRNumber, 10)}
               prTitle={pullRequest.title}
               repoFullName={pullRequest.base?.repo?.full_name || "structurai/core-backend"}
               isDocked={isVideoDocked}
@@ -471,9 +578,9 @@ export function PRReview() {
         <ScheduleMeetingModal
           isOpen={isMeetingModalOpen}
           onClose={() => setIsMeetingModalOpen(false)}
-          repositoryId={repoId}
+          repositoryId={selectedRepoId}
           repoFullName={pullRequest.base?.repo?.full_name || "structurai/core-backend"}
-          prNumber={pullRequest.number || parseInt(prNumber, 10)}
+          prNumber={pullRequest.number || parseInt(selectedPRNumber, 10)}
           prTitle={pullRequest.title}
           onStartInstantMeeting={(channel) => setActiveChannel(channel)}
         />
@@ -482,10 +589,10 @@ export function PRReview() {
         <div 
           className={`fixed top-16 bottom-0 right-0 z-40 transform transition-transform duration-300 ease-in-out ${chatOpen ? "translate-x-0 shadow-2xl" : "translate-x-full"}`}
         >
-          {repoId && prNumber && (
+          {selectedRepoId && selectedPRNumber && (
             <PRChatPanel 
-              repoId={repoId} 
-              prNumber={prNumber} 
+              repoId={selectedRepoId} 
+              prNumber={selectedPRNumber} 
               onClose={() => setChatOpen(false)} 
             />
           )}

@@ -46,6 +46,14 @@ router.post("/:owner/:repo/index", optionalAuth, (req, res, next) => {
   req.params.id = `${req.params.owner}/${req.params.repo}`;
   return triggerRepositoryIndexing(req, res, next);
 });
+router.get("/:owner/:repo/pulls", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryPullRequests(req, res, next);
+});
+router.get("/:owner/:repo/pulls/:number", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryPullRequestDetails(req, res, next);
+});
 router.get("/:owner/:repo", optionalAuth, (req, res, next) => {
   req.params.id = `${req.params.owner}/${req.params.repo}`;
   return getRepositoryById(req, res, next);

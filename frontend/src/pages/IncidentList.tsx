@@ -10,6 +10,7 @@ import {
   GitCommit,
   AlertTriangle,
   Radio,
+  Activity,
 } from "lucide-react";
 
 interface IncidentItem {
@@ -43,13 +44,34 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001
 
 export function IncidentList() {
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
+  const [repositories, setRepositories] = useState<any[]>([]);
+  const [selectedRepoId, setSelectedRepoId] = useState<string>("ALL");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedSeverity, setSelectedSeverity] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isPinging, setIsPinging] = useState<boolean>(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Load repositories for filter dropdown
+  useEffect(() => {
+    async function loadRepos() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/repositories`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.repositories)) {
+            setRepositories(data.repositories);
+          }
+        }
+      } catch {
+        // Silently continue
+      }
+    }
+    loadRepos();
+  }, []);
 
   const fetchIncidents = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -59,6 +81,7 @@ export function IncidentList() {
       if (searchTerm.trim()) params.append("search", searchTerm.trim());
       if (selectedSeverity !== "ALL") params.append("severity", selectedSeverity);
       if (selectedStatus !== "ALL") params.append("status", selectedStatus);
+      if (selectedRepoId !== "ALL") params.append("repositoryId", selectedRepoId);
       params.append("limit", "50");
 
       const res = await fetch(`${API_BASE_URL}/api/incidents?${params.toString()}`, {
@@ -81,7 +104,41 @@ export function IncidentList() {
       if (showLoading) setLoading(false);
       setIsRefreshing(false);
     }
-  }, [searchTerm, selectedSeverity, selectedStatus]);
+  }, [searchTerm, selectedSeverity, selectedStatus, selectedRepoId]);
+
+  // Ping Repo Health
+  const handlePingHealth = async () => {
+    setIsPinging(true);
+    const activeRepo = repositories.find(r => (r.indexing?.repositoryId || r._id) === selectedRepoId) || repositories[0];
+    const repoFullName = activeRepo?.github?.fullName || "pallavdeshmukh18/structurAl";
+    const repoName = activeRepo?.github?.name || "structurAl";
+    const repoOwner = activeRepo?.github?.owner || "pallavdeshmukh18";
+
+    try {
+      await fetch(`${API_BASE_URL}/api/webhooks/github`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-github-event": "ping",
+        },
+        body: JSON.stringify({
+          zen: "Telemetry health check verified. All AST nodes responsive.",
+          repository: {
+            id: activeRepo?.github?.id || Date.now(),
+            name: repoName,
+            full_name: repoFullName,
+            owner: { login: repoOwner },
+            html_url: activeRepo?.github?.url || `https://github.com/${repoFullName}`,
+          },
+        }),
+      });
+      await fetchIncidents(true);
+    } catch (err) {
+      console.error("Ping error:", err);
+    } finally {
+      setIsPinging(false);
+    }
+  };
 
   // Initial fetch and dependency update
   useEffect(() => {
@@ -175,18 +232,29 @@ export function IncidentList() {
           </p>
         </div>
 
-        <button
-          onClick={() => fetchIncidents(true)}
-          disabled={isRefreshing}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-indigo-600" : "text-slate-500"}`} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handlePingHealth}
+            disabled={isPinging}
+            className="flex items-center space-x-2 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-all disabled:opacity-50"
+          >
+            <Activity className={`w-4 h-4 ${isPinging ? "animate-spin" : ""}`} />
+            <span>{isPinging ? "Pinging Telemetry..." : "⚡ Ping Repo Health"}</span>
+          </button>
+
+          <button
+            onClick={() => fetchIncidents(true)}
+            disabled={isRefreshing}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-indigo-600" : "text-slate-500"}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -196,6 +264,25 @@ export function IncidentList() {
             placeholder="Search incidents, commits, authors, or keywords..."
             className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
           />
+        </div>
+
+        <div>
+          <select
+            value={selectedRepoId}
+            onChange={(e) => setSelectedRepoId(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+          >
+            <option value="ALL">All Repositories</option>
+            {repositories.map((repo) => {
+              const id = repo.indexing?.repositoryId || repo._id || repo.github?.id;
+              const name = repo.github?.fullName || repo.github?.name || repo.name || "Repository";
+              return (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              );
+            })}
+          </select>
         </div>
 
         <div>
