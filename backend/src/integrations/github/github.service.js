@@ -45,6 +45,8 @@ const getRepository = async (userId, owner, repo) => {
   return await client.getRepository(owner, repo);
 };
 
+const getRepositoryDetails = getRepository;
+
 /**
  * Get branch details for specified user
  */
@@ -52,6 +54,8 @@ const getBranch = async (userId, owner, repo, branch) => {
   const client = await getClientForUser(userId);
   return await client.getBranch(owner, repo, branch);
 };
+
+const getBranchDetails = getBranch;
 
 /**
  * Get commit details for specified user
@@ -86,6 +90,18 @@ const getRepositoryContents = async (userId, owner, repo, path = "", ref = null)
 };
 
 /**
+ * Get file content for specified user (fetches repository contents and decodes base64 content)
+ */
+const getFileContent = async (userId, owner, repo, path, ref = null) => {
+  const data = await getRepositoryContents(userId, owner, repo, path, ref);
+  if (data && data.content && data.encoding === "base64") {
+    const decodedContent = Buffer.from(data.content, "base64").toString("utf-8");
+    return { ...data, content: decodedContent };
+  }
+  return data;
+};
+
+/**
  * Get list of pull requests for specified user
  */
 const getPullRequests = async (userId, owner, repo, options = {}) => {
@@ -101,6 +117,8 @@ const getPullRequest = async (userId, owner, repo, number) => {
   return await client.getPullRequest(owner, repo, number);
 };
 
+const getPullRequestDetails = getPullRequest;
+
 /**
  * Get pull request changed files for specified user
  */
@@ -114,12 +132,16 @@ module.exports = {
   getCurrentUser,
   getUserRepositories,
   getRepository,
+  getRepositoryDetails,
   getBranch,
+  getBranchDetails,
   getCommit,
   getGitTree,
   getGitBlob,
   getRepositoryContents,
+  getFileContent,
   getPullRequests,
   getPullRequest,
+  getPullRequestDetails,
   getPullRequestFiles,
 };
