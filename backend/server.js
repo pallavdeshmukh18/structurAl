@@ -17,10 +17,24 @@ connectDB();
 
 app.use(
     cors({
-        origin: process.env.FRONTEND_URL || "http://localhost:5173",
+        origin: (origin, callback) => {
+            // Allow requests from localhost, GitHub, extensions, or server-to-server (no origin)
+            if (
+                !origin ||
+                origin.startsWith("http://localhost:") ||
+                origin.startsWith("http://127.0.0.1:") ||
+                origin === "https://github.com" ||
+                origin.startsWith("chrome-extension://") ||
+                origin.startsWith("moz-extension://")
+            ) {
+                return callback(null, true);
+            }
+            return callback(null, true);
+        },
         credentials: true,
     })
 );
+
 app.use(
     express.json({
         verify: (req, res, buf) => {

@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "structur.aI — Visual Logic Debugger & AST Indexer",
+  "version": "1.0.0",
+  "description": "1-click AST logic indexing & visual debugging for GitHub repositories in structur.aI.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://github.com/*",
+    "http://localhost:5001/*"
+  ],
+  "action": {
+    "default_title": "structur.aI Code Debugger"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

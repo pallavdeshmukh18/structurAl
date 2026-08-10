@@ -21,6 +21,22 @@ const isAuthenticated = async (req, res, next) => {
   }
 };
 
+const optionalAuth = async (req, res, next) => {
+  try {
+    if (req.session && req.session.userId) {
+      const user = await User.findById(req.session.userId);
+      if (user) {
+        req.user = user;
+      }
+    }
+    next();
+  } catch (error) {
+    console.error("Optional auth middleware error:", error);
+    next();
+  }
+};
+
 module.exports = {
   isAuthenticated,
+  optionalAuth,
 };

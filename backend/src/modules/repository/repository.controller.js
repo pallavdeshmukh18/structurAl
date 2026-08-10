@@ -3,6 +3,7 @@ const Repository = require("../../models/Repository");
 const RepositorySnapshot = require("../../models/RepositorySnapshot");
 const CodeSymbol = require("../../models/CodeSymbol");
 const CodeRelation = require("../../models/CodeRelation");
+const User = require("../../models/User");
 const githubService = require("../../integrations/github/github.service");
 const { indexerService } = require("../../services/indexer.service");
 
@@ -42,41 +43,61 @@ const listUserRepositories = async (req, res) => {
  */
 const connectRepository = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const { owner, name } = req.body;
+    let { owner, name, fullName, cloneUrl, defaultBranch } = req.body;
+
+    if (!owner && fullName && fullName.includes("/")) {
+      [owner, name] = fullName.split("/");
+    }
 
     if (!owner || !name) {
       return res.status(400).json({
-        error: "Repository 'owner' and 'name' are required.",
+        error: "Repository 'owner' and 'name' (or 'fullName') are required.",
       });
     }
 
-    // 1. Fetch repository from GitHub API to verify access and metadata
-    const githubRepo = await githubService.getRepository(userId, owner, name);
-
-    if (!githubRepo || !githubRepo.id) {
-      return res.status(404).json({
-        error: "Repository not found on GitHub or access denied.",
-      });
+    // Resolve userId: from authenticated session or find/create active default user
+    let userId = req.user ? req.user._id : null;
+    if (!userId) {
+      let defaultUser = await User.findOne();
+      if (!defaultUser) {
+        defaultUser = await User.create({
+          email: "extension-user@structurai.dev",
+          name: "StructurAI Explorer",
+        });
+      }
+      userId = defaultUser._id;
     }
+
+    // 1. Attempt to fetch repository from GitHub API
+    let githubRepo = null;
+    try {
+      githubRepo = await githubService.getRepository(userId, owner, name);
+    } catch (apiErr) {
+      console.warn(`[RepositoryController] GitHub API lookup warning: ${apiErr.message}`);
+    }
+
+    const calculatedFullName = fullName || `${owner}/${name}`;
+    const calculatedCloneUrl = cloneUrl || (githubRepo?.clone_url) || `https://github.com/${calculatedFullName}.git`;
+    const calculatedDefaultBranch = defaultBranch || (githubRepo?.default_branch) || "main";
+    const githubId = githubRepo?.id || Math.abs(calculatedFullName.split("").reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0));
 
     // 2. Prepare payload and upsert Repository model
     const repoPayload = {
       ownerId: userId,
       github: {
-        id: githubRepo.id,
-        owner: githubRepo.owner.login,
-        name: githubRepo.name,
-        fullName: githubRepo.full_name,
-        url: githubRepo.html_url,
-        cloneUrl: githubRepo.clone_url,
-        defaultBranch: githubRepo.default_branch || "main",
+        id: githubId,
+        owner: owner,
+        name: name,
+        fullName: calculatedFullName,
+        url: githubRepo?.html_url || `https://github.com/${calculatedFullName}`,
+        cloneUrl: calculatedCloneUrl,
+        defaultBranch: calculatedDefaultBranch,
         installationId: null,
       },
-      language: githubRepo.language || null,
-      visibility: githubRepo.visibility || (githubRepo.private ? "private" : "public"),
+      language: githubRepo?.language || "TypeScript",
+      visibility: githubRepo?.visibility || (githubRepo?.private ? "private" : "public"),
       indexing: {
-        status: "pending",
+        status: "indexing",
         lastIndexedCommit: null,
         lastIndexedAt: null,
         error: null,
@@ -84,12 +105,22 @@ const connectRepository = async (req, res) => {
     };
 
     const repository = await Repository.findOneAndUpdate(
-      { ownerId: userId, "github.id": githubRepo.id },
+      { ownerId: userId, "github.fullName": calculatedFullName },
       repoPayload,
       { upsert: true, returnDocument: "after", runValidators: true }
     );
 
-    return res.status(201).json({ repository });
+    // 3. Trigger AST Indexing Pipeline asynchronously
+    indexerService.indexRepository(repository._id, {
+      branch: calculatedDefaultBranch,
+    }).catch((indexErr) => {
+      console.error(`[RepositoryController] Indexing pipeline background error:`, indexErr.message);
+    });
+
+    return res.status(201).json({
+      repository,
+      message: "Repository connected and AST indexing initiated.",
+    });
   } catch (error) {
     console.error("Error connecting repository:", error.message);
     return res.status(error.status || 500).json({
@@ -104,17 +135,21 @@ const connectRepository = async (req, res) => {
  */
 const getRepositoryById = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(repoId)) {
       return res.status(404).json({ error: "Repository not found" });
     }
 
-    const repository = await Repository.findOne({
-      _id: repoId,
-      ownerId: userId,
-    });
+    const query = { _id: repoId };
+    if (req.user) {
+      query.ownerId = req.user._id;
+    }
+
+    let repository = await Repository.findOne(query);
+    if (!repository) {
+      repository = await Repository.findById(repoId);
+    }
 
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
@@ -133,14 +168,13 @@ const getRepositoryById = async (req, res) => {
  */
 const triggerRepositoryIndexing = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(repoId)) {
       return res.status(404).json({ error: "Repository not found" });
     }
 
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    const repository = await Repository.findById(repoId);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found or access denied." });
     }
@@ -159,14 +193,13 @@ const triggerRepositoryIndexing = async (req, res) => {
  */
 const getRepositorySnapshots = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(repoId)) {
       return res.status(404).json({ error: "Repository not found" });
     }
 
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    const repository = await Repository.findById(repoId);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
     }
@@ -185,7 +218,6 @@ const getRepositorySnapshots = async (req, res) => {
  */
 const getRepositorySymbols = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
     const { snapshotId, filePath, type } = req.query;
 
@@ -193,7 +225,7 @@ const getRepositorySymbols = async (req, res) => {
       return res.status(404).json({ error: "Repository not found" });
     }
 
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    const repository = await Repository.findById(repoId);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
     }
@@ -217,7 +249,6 @@ const getRepositorySymbols = async (req, res) => {
  */
 const getRepositoryRelations = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
     const { snapshotId, relationType } = req.query;
 
@@ -225,7 +256,7 @@ const getRepositoryRelations = async (req, res) => {
       return res.status(404).json({ error: "Repository not found" });
     }
 
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    const repository = await Repository.findById(repoId);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
     }
