@@ -8,6 +8,7 @@ const sessionConfig = require("./src/config/session");
 const authRoutes = require("./src/modules/auth/auth.routes");
 const repositoryRoutes = require("./src/modules/repository/repository.routes");
 const webhookRoutes = require("./src/modules/webhook/github.webhook.routes");
+const incidentRoutes = require("./src/modules/incident/incident.routes");
 const aiRoutes = require("./mayank-ai-engine/src/routes");
 
 const app = express();
@@ -32,6 +33,7 @@ app.use(sessionConfig);
 app.use("/api/auth", authRoutes);
 app.use("/api/repositories", repositoryRoutes);
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/incidents", incidentRoutes);
 app.use("/api", aiRoutes);
 
 app.get("/", (req, res) => {
@@ -41,6 +43,8 @@ app.get("/", (req, res) => {
             auth: "/api/auth",
             repositories: "/api/repositories",
             webhooks: "/api/webhooks/github",
+            incidents: "/api/incidents",
+            ai: "/api/ai",
             health: "/api/health",
         },
     });
