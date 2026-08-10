@@ -13,10 +13,95 @@ const listUserRepositories = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const repositories = await Repository.find({ ownerId: userId })
-      .sort({ updatedAt: -1 });
+    // 1. Fetch existing MongoDB repositories for this user
+    const mongoRepos = await Repository.find({ ownerId: userId }).sort({ updatedAt: -1 });
 
-    return res.json({ repositories });
+    // Map MongoDB repositories by github.id & github.fullName
+    const mongoRepoMap = new Map();
+    for (const repo of mongoRepos) {
+      if (repo.github?.id) {
+        mongoRepoMap.set(String(repo.github.id), repo);
+      }
+      if (repo.github?.fullName) {
+        mongoRepoMap.set(repo.github.fullName.toLowerCase(), repo);
+      }
+    }
+
+    // 2. Fetch accessible GitHub repositories via OAuth
+    let githubRepos = [];
+    try {
+      githubRepos = await githubService.getUserRepositories(userId, { all: true, sort: "updated" });
+    } catch (ghErr) {
+      console.warn("Could not fetch user repos from GitHub API:", ghErr.message);
+    }
+
+    // 3. Merge GitHub repositories with MongoDB indexing state
+    const processedGhIds = new Set();
+    const mergedList = [];
+
+    if (Array.isArray(githubRepos) && githubRepos.length > 0) {
+      for (const ghRepo of githubRepos) {
+        const ghIdStr = String(ghRepo.id);
+        const ghFullNameLower = (ghRepo.full_name || "").toLowerCase();
+        processedGhIds.add(ghIdStr);
+
+        const mongoRepo = mongoRepoMap.get(ghIdStr) || mongoRepoMap.get(ghFullNameLower);
+
+        mergedList.push({
+          github: {
+            id: ghRepo.id,
+            owner: ghRepo.owner?.login || "",
+            name: ghRepo.name,
+            fullName: ghRepo.full_name,
+            url: ghRepo.html_url,
+            cloneUrl: ghRepo.clone_url,
+            defaultBranch: ghRepo.default_branch || "main",
+            private: !!ghRepo.private,
+            language: ghRepo.language || null,
+          },
+          language: ghRepo.language || null,
+          visibility: ghRepo.private ? "private" : "public",
+          indexing: {
+            indexed: Boolean(mongoRepo),
+            status: mongoRepo ? (mongoRepo.indexing?.status || "ready") : "not_indexed",
+            repositoryId: mongoRepo ? mongoRepo._id.toString() : null,
+            lastIndexedAt: mongoRepo ? (mongoRepo.indexing?.lastIndexedAt || null) : null,
+            error: mongoRepo ? (mongoRepo.indexing?.error || null) : null,
+          },
+        });
+      }
+    }
+
+    // 4. Also append any MongoDB repository that wasn't in GitHub list (safety fallback)
+    for (const mRepo of mongoRepos) {
+      const idStr = String(mRepo.github?.id);
+      if (!processedGhIds.has(idStr)) {
+        mergedList.push({
+          github: {
+            id: mRepo.github?.id || mRepo._id.toString(),
+            owner: mRepo.github?.owner || "",
+            name: mRepo.github?.name || "Repository",
+            fullName: mRepo.github?.fullName || mRepo.github?.name || "Repository",
+            url: mRepo.github?.url || "",
+            cloneUrl: mRepo.github?.cloneUrl || "",
+            defaultBranch: mRepo.github?.defaultBranch || "main",
+            private: mRepo.visibility === "private",
+            language: mRepo.language || null,
+          },
+          language: mRepo.language || null,
+          visibility: mRepo.visibility || "public",
+          indexing: {
+            indexed: true,
+            status: mRepo.indexing?.status || "ready",
+            repositoryId: mRepo._id.toString(),
+            lastIndexedAt: mRepo.indexing?.lastIndexedAt || null,
+            error: mRepo.indexing?.error || null,
+          },
+        });
+      }
+    }
+
+    return res.json({ repositories: mergedList });
   } catch (error) {
     console.error("Error listing user repositories:", error.message);
     return res.status(500).json({ error: "Failed to list repositories" });
@@ -24,7 +109,7 @@ const listUserRepositories = async (req, res) => {
 };
 
 /**
- * Connect a GitHub repository
+ * Connect a GitHub repository and start indexing
  * POST /api/repositories/connect
  */
 const connectRepository = async (req, res) => {
@@ -45,36 +130,67 @@ const connectRepository = async (req, res) => {
     }
 
     // 2. Check if already connected by this user
-    let existingRepo = await Repository.findOne({
-      "github.githubId": githubRepo.id,
-      ownerId: userId,
+    let repository = await Repository.findOne({
+      $or: [
+        { "github.id": githubRepo.id, ownerId: userId },
+        { "github.fullName": githubRepo.full_name, ownerId: userId },
+      ],
     });
 
-    if (existingRepo) {
-      return res.status(200).json({
-        message: "Repository already connected",
-        repository: existingRepo,
+    if (!repository) {
+      // 3. Create repository record
+      repository = await Repository.create({
+        ownerId: userId,
+        github: {
+          id: githubRepo.id,
+          owner: githubRepo.owner.login,
+          name: githubRepo.name,
+          fullName: githubRepo.full_name,
+          defaultBranch: githubRepo.default_branch || "main",
+          url: githubRepo.html_url,
+        },
+        language: githubRepo.language || null,
+        visibility: githubRepo.private ? "private" : "public",
+        status: "active",
+        indexing: {
+          status: "pending",
+        },
       });
     }
 
-    // 3. Create repository record
-    const repository = await Repository.create({
-      ownerId: userId,
-      github: {
-        githubId: githubRepo.id,
-        owner: githubRepo.owner.login,
-        name: githubRepo.name,
-        fullName: githubRepo.full_name,
-        defaultBranch: githubRepo.default_branch || "main",
-        url: githubRepo.html_url,
-      },
-      visibility: githubRepo.private ? "private" : "public",
-      status: "active",
-    });
+    // 4. Trigger indexing
+    let snapshot = null;
+    try {
+      const indexerService = require("../../services/indexer.service");
+      const targetBranch = repository.github.defaultBranch || "main";
+      
+      let commitSha;
+      try {
+        const branchDetails = await githubService.getBranchDetails(
+          userId,
+          repository.github.owner,
+          repository.github.name,
+          targetBranch
+        );
+        commitSha = branchDetails.commit.sha;
+      } catch (e) {
+        commitSha = "HEAD";
+      }
+
+      snapshot = await indexerService.startIndexing(
+        repository._id,
+        commitSha,
+        targetBranch,
+        userId
+      );
+    } catch (indexErr) {
+      console.warn("Automatic indexing trigger warning:", indexErr.message);
+    }
 
     return res.status(201).json({
-      message: "Repository connected successfully",
+      message: "Repository connected and indexing started",
       repository,
+      snapshot,
     });
   } catch (error) {
     console.error("Error connecting repository:", error.message);

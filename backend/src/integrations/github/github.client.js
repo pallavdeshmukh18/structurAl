@@ -65,19 +65,51 @@ class GitHubClient {
    * @param {object} options { page, per_page, sort, direction, visibility, affiliation, type }
    */
   async getUserRepositories(options = {}) {
-    const params = new URLSearchParams();
+    const fetchAll = options.all !== false;
+    const perPage = options.per_page || 100;
+    const sort = options.sort || "updated";
 
-    const allowedParams = ["page", "per_page", "sort", "direction", "visibility", "affiliation", "type"];
-    for (const key of allowedParams) {
-      if (options[key] !== undefined && options[key] !== null) {
-        params.append(key, String(options[key]));
+    if (!fetchAll) {
+      const params = new URLSearchParams();
+      const allowedParams = ["page", "per_page", "sort", "direction", "visibility", "affiliation", "type"];
+      for (const key of allowedParams) {
+        if (options[key] !== undefined && options[key] !== null) {
+          params.append(key, String(options[key]));
+        }
       }
+      const queryString = params.toString();
+      return await this.#request(`/user/repos${queryString ? `?${queryString}` : ""}`);
     }
 
-    const queryString = params.toString();
-    const endpoint = `/user/repos${queryString ? `?${queryString}` : ""}`;
+    const allRepos = [];
+    let page = 1;
+    const maxPages = 10; // safety ceiling of 1000 repos
 
-    return await this.#request(endpoint);
+    while (page <= maxPages) {
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: String(perPage),
+        sort,
+      });
+
+      if (options.affiliation) params.append("affiliation", String(options.affiliation));
+      if (options.visibility) params.append("visibility", String(options.visibility));
+      if (options.type) params.append("type", String(options.type));
+      if (options.direction) params.append("direction", String(options.direction));
+
+      const pageData = await this.#request(`/user/repos?${params.toString()}`);
+      if (!Array.isArray(pageData) || pageData.length === 0) {
+        break;
+      }
+
+      allRepos.push(...pageData);
+      if (pageData.length < perPage) {
+        break;
+      }
+      page++;
+    }
+
+    return allRepos;
   }
 
   /**

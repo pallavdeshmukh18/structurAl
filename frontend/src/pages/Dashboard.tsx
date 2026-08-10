@@ -16,7 +16,10 @@ import {
   Lock,
   Globe,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Network,
+  CheckCircle2,
+  Play
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "../context/AuthContext";
@@ -32,6 +35,8 @@ export interface DashboardRepository {
     url?: string;
     cloneUrl?: string;
     defaultBranch: string;
+    private?: boolean;
+    language?: string | null;
   };
   name?: string;
   fullName?: string;
@@ -41,6 +46,13 @@ export interface DashboardRepository {
   defaultBranch?: string;
   language?: string | null;
   visibility?: "public" | "private" | string;
+  indexing?: {
+    indexed: boolean;
+    status: "not_indexed" | "pending" | "indexing" | "ready" | "failed" | string;
+    repositoryId: string | null;
+    lastIndexedAt?: string | null;
+    error?: string | null;
+  };
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -62,7 +74,7 @@ export function Dashboard() {
   const [repositories, setRepositories] = useState<DashboardRepository[]>([]);
   const [loadingRepos, setLoadingRepos] = useState<boolean>(true);
   const [repoError, setRepoError] = useState<string | null>(null);
-  const [connectingId, setConnectingId] = useState<number | string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | number | null>(null);
 
   const fetchRepositories = async () => {
     setLoadingRepos(true);
@@ -97,12 +109,15 @@ export function Dashboard() {
     }
   }, [user]);
 
-  const handleConnectRepository = async (repo: DashboardRepository) => {
-    const targetId = repo._id || repo.id || repo.github?.id;
+  const handleIndexRepository = async (repo: DashboardRepository) => {
     const owner = repo.github?.owner || repo.owner;
     const name = repo.github?.name || repo.name;
+    const cardId = repo.github?.id || repo.id || repo._id;
 
-    setConnectingId(targetId || null);
+    if (!owner || !name) return;
+
+    setActionLoadingId(cardId || null);
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/repositories/connect`, {
         method: "POST",
@@ -110,24 +125,37 @@ export function Dashboard() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({
-          owner,
-          name,
-        }),
+        body: JSON.stringify({ owner, name }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const mongoId = data.repository?._id || targetId;
-        navigate(`/repository/${mongoId}`);
-      } else {
-        navigate(`/repository/${targetId}`);
+        const mongoRepo = data.repository;
+        const mongoId = mongoRepo?._id;
+
+        // Update card locally to indexed
+        setRepositories((prev) =>
+          prev.map((r) => {
+            const matchedId = r.github?.id || r.id || r._id;
+            if (matchedId === cardId) {
+              return {
+                ...r,
+                indexing: {
+                  indexed: true,
+                  status: mongoRepo?.indexing?.status || "indexing",
+                  repositoryId: mongoId || null,
+                  lastIndexedAt: new Date().toISOString(),
+                },
+              };
+            }
+            return r;
+          })
+        );
       }
     } catch (err) {
-      console.error("Connect repo error:", err);
-      navigate(`/repository/${targetId}`);
+      console.error("Index repository error:", err);
     } finally {
-      setConnectingId(null);
+      setActionLoadingId(null);
     }
   };
 
@@ -201,7 +229,7 @@ export function Dashboard() {
               GitHub Repositories
             </CardTitle>
             <CardDescription>
-              Accessible repositories via your authenticated GitHub OAuth token.
+              All accessible repositories from your authenticated GitHub account.
             </CardDescription>
           </div>
           <Button
@@ -253,32 +281,48 @@ export function Dashboard() {
             /* Repositories Grid */
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {repositories.map((repo) => {
-                const repoId = repo._id || repo.id || repo.github?.id || "";
+                const cardId = repo.github?.id || repo.id || repo._id || "";
                 const repoName = repo.github?.name || repo.name || "Repository";
                 const repoFullName = repo.github?.fullName || repo.fullName || repoName;
-                const repoVisibility = repo.visibility || "public";
-                const repoLanguage = repo.language;
+                const repoVisibility = repo.visibility || (repo.github?.private ? "private" : "public");
+                const repoLanguage = repo.language || repo.github?.language;
                 const repoBranch = repo.github?.defaultBranch || repo.defaultBranch || "main";
                 const repoUrl = repo.github?.url || repo.url || "#";
 
+                const isIndexed = repo.indexing?.indexed === true;
+                const mongoRepoId = repo.indexing?.repositoryId || repo._id;
+                const isActionLoading = actionLoadingId === cardId;
+
                 return (
                   <div
-                    key={repoId}
+                    key={cardId}
                     className="p-5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between"
                   >
                     <div className="space-y-2">
-                      <div className="flex items-start justify-between">
-                        <h3 className="text-base font-bold text-slate-900 truncate pr-2" title={repoName}>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-base font-bold text-slate-900 truncate pr-1" title={repoName}>
                           {repoName}
                         </h3>
-                        <span className="flex items-center gap-1 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md capitalize">
-                          {repoVisibility === "private" ? (
-                            <Lock className="w-3 h-3 text-amber-600" />
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isIndexed ? (
+                            <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Indexed
+                            </span>
                           ) : (
-                            <Globe className="w-3 h-3 text-emerald-600" />
+                            <span className="flex items-center gap-1 text-[11px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                              Not Indexed
+                            </span>
                           )}
-                          {repoVisibility}
-                        </span>
+                          <span className="flex items-center gap-1 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md capitalize">
+                            {repoVisibility === "private" ? (
+                              <Lock className="w-3 h-3 text-amber-600" />
+                            ) : (
+                              <Globe className="w-3 h-3 text-emerald-600" />
+                            )}
+                            {repoVisibility}
+                          </span>
+                        </div>
                       </div>
 
                       <p className="text-xs text-slate-500 truncate font-mono" title={repoFullName}>
@@ -298,24 +342,60 @@ export function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-5 mt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between pt-5 mt-4 border-t border-slate-100 gap-2">
                       <a
                         href={repoUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+                        className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-1 shrink-0"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         GitHub
                       </a>
-                      <Button
-                        size="sm"
-                        onClick={() => handleConnectRepository(repo)}
-                        disabled={connectingId === repoId}
-                        className="text-xs h-8 px-3"
-                      >
-                        {connectingId === repoId ? "Connecting..." : "Inspect"}
-                      </Button>
+
+                      <div className="flex items-center gap-1.5">
+                        {isIndexed && mongoRepoId ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/repository/${mongoRepoId}/visualizer`)}
+                              className="text-xs h-8 px-2.5 flex items-center gap-1"
+                              title="Open Repository Visualizer"
+                            >
+                              <Network className="w-3.5 h-3.5 text-indigo-600" />
+                              <span className="hidden sm:inline">Visualizer</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              onClick={() => navigate(`/repository/${mongoRepoId}`)}
+                              className="text-xs h-8 px-3"
+                            >
+                              Inspect
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleIndexRepository(repo)}
+                            disabled={isActionLoading}
+                            className="text-xs h-8 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5"
+                          >
+                            {isActionLoading ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                <span>Indexing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 fill-current" />
+                                <span>Index</span>
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
