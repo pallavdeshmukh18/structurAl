@@ -13,18 +13,21 @@ export function AppLayout() {
 
   const repoPath = currentRepoId ? `/repository/${currentRepoId}` : "/repo";
   const visualizerPath = currentRepoId ? `/repository/${currentRepoId}/visualizer` : "/repository/visualizer";
+  const prReviewPath = currentRepoId ? `/repository/${currentRepoId}/pr/1` : "/pr-review";
 
   const isVisualizerActive = location.pathname.includes("/visualizer");
+  const isPrReviewActive = location.pathname.includes("/pr") || location.pathname.includes("/review");
   const isRepoOverviewActive =
     (location.pathname.startsWith("/repository") || location.pathname.startsWith("/repo")) &&
-    !isVisualizerActive;
+    !isVisualizerActive &&
+    !isPrReviewActive;
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", isActive: location.pathname.startsWith("/dashboard"), icon: LayoutDashboard },
     { name: "Incidents", path: "/incidents", isActive: location.pathname.startsWith("/incidents"), icon: AlertTriangle },
     { name: "Repository", path: repoPath, isActive: isRepoOverviewActive, icon: FolderGit2 },
     { name: "Visualizer", path: visualizerPath, isActive: isVisualizerActive, icon: Network },
-    { name: "PR Reviews", path: currentRepoId ? `/repository/${currentRepoId}?tab=prs` : "/pr/1", isActive: location.pathname.includes("tab=prs") || location.pathname.startsWith("/pr"), icon: GitPullRequest },
+    { name: "PR Reviews", path: prReviewPath, isActive: isPrReviewActive, icon: GitPullRequest },
     { name: "Code Health", path: "/health", isActive: location.pathname.startsWith("/health") || location.pathname.startsWith("/code-health"), icon: Activity },
   ];
 
