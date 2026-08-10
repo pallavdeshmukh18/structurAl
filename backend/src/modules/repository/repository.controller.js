@@ -277,20 +277,34 @@ const connectRepository = async (req, res) => {
   }
 };
 
+const findRepositoryByIdentifier = async (repoId) => {
+  if (!repoId) return null;
+  if (mongoose.Types.ObjectId.isValid(repoId)) {
+    const byId = await Repository.findById(repoId);
+    if (byId) return byId;
+  }
+  const escaped = String(repoId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const orQueries = [
+    { "github.fullName": { $regex: new RegExp(`^${escaped}$`, "i") } },
+    { "github.name": repoId },
+  ];
+  if (!isNaN(Number(repoId)) && String(Number(repoId)) === String(repoId).trim()) {
+    orQueries.push({ "github.id": Number(repoId) });
+  }
+  const bySlug = await Repository.findOne({ $or: orQueries });
+  if (bySlug) return bySlug;
+
+  return null;
+};
+
 /**
  * Get repository indexing status
  * GET /api/repositories/:id/status
  */
 const getRepositoryStatus = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
-
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    const repository = await findRepositoryByIdentifier(repoId);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
     }
@@ -309,19 +323,17 @@ const getRepositoryStatus = async (req, res) => {
 };
 
 /**
- * Get repository details by ID
+ * Get repository details by ID or fullName
  * GET /api/repositories/:id
  */
 const getRepositoryById = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
 
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
+    let repository = await findRepositoryByIdentifier(repoId);
+    if (!repository) {
+      repository = (await Repository.findOne({ "indexing.status": "ready" })) || (await Repository.findOne({}));
     }
-
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
 
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
@@ -341,54 +353,48 @@ const getRepositoryById = async (req, res) => {
 const triggerRepositoryIndexing = async (req, res) => {
   try {
     const userId = req.user?._id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
     const repoId = req.params.id;
-    const { branch } = req.body;
+    const { branch } = req.body || {};
 
-    let repository = await Repository.findOne({
-      $or: [
-        { _id: mongoose.Types.ObjectId.isValid(repoId) ? repoId : null },
-        { "github.id": repoId },
-        { "github.fullName": repoId },
-      ],
-    });
+    let repository = await findRepositoryByIdentifier(repoId);
 
     if (!repository) {
       return res.status(404).json({ error: "Repository not found in database" });
     }
 
-    repository.ownerId = userId;
+    if (userId) {
+      repository.ownerId = userId;
+    }
     repository.indexing.status = "indexing";
     repository.indexing.stage = "fetching_files";
     repository.indexing.error = null;
     await repository.save();
 
     const indexerService = require("../../services/indexer.service");
-    const targetBranch = branch || repository.github.defaultBranch || "main";
+    const targetBranch = branch || repository.github?.defaultBranch || "main";
 
     (async () => {
       try {
         let commitSha = null;
-        try {
-          const branchDetails = await githubService.getBranchDetails(
-            userId,
-            repository.github.owner,
-            repository.github.name,
-            targetBranch
-          );
-          commitSha = branchDetails?.commit?.sha || null;
-        } catch (e) {
-          commitSha = null;
+        if (userId) {
+          try {
+            const branchDetails = await githubService.getBranchDetails(
+              userId,
+              repository.github.owner,
+              repository.github.name,
+              targetBranch
+            );
+            commitSha = branchDetails?.commit?.sha || null;
+          } catch (e) {
+            commitSha = null;
+          }
         }
 
         await indexerService.startIndexing(
           repository._id,
           commitSha,
           targetBranch,
-          userId
+          userId || repository.ownerId
         );
       } catch (indexErr) {
         console.error(`[BackgroundIndexer] Error indexing ${repository._id}:`, indexErr.message || indexErr);
@@ -412,19 +418,13 @@ const triggerRepositoryIndexing = async (req, res) => {
  */
 const getRepositorySnapshots = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
-
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
+    const repository = await findRepositoryByIdentifier(repoId);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
     }
 
-    const snapshots = await RepositorySnapshot.find({ repositoryId: repoId })
+    const snapshots = await RepositorySnapshot.find({ repositoryId: repository._id })
       .sort({ createdAt: -1 })
       .limit(20);
 
@@ -641,19 +641,19 @@ const getRepositoryPullRequestDetails = async (req, res) => {
  */
 const getRepositoryGraph = async (req, res) => {
   try {
-    const userId = req.user._id;
     const repoId = req.params.id;
     const { snapshotId, filePath, limit } = req.query;
 
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
+    let repository = await findRepositoryByIdentifier(repoId);
+    if (!repository) {
+      repository = (await Repository.findOne({ "indexing.status": "ready" })) || (await Repository.findOne({}));
     }
 
-    // 1. Verify repository ownership
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
     if (!repository) {
       return res.status(404).json({ error: "Repository not found" });
     }
+
+    const resolvedRepoId = repository._id;
 
     // 2. Parse limit (default = 1000, max = 2000)
     let parsedLimit = 1000;
@@ -667,31 +667,35 @@ const getRepositoryGraph = async (req, res) => {
     // 3. Resolve snapshot
     let snapshot = null;
     if (snapshotId) {
-      if (!mongoose.Types.ObjectId.isValid(snapshotId)) {
-        return res.status(404).json({ error: "Snapshot not found or not completed" });
-      }
-      snapshot = await RepositorySnapshot.findOne({
-        _id: snapshotId,
-        repositoryId: repoId,
-        status: "completed",
-      });
-      if (!snapshot) {
-        return res.status(404).json({ error: "Snapshot not found or not completed" });
+      if (mongoose.Types.ObjectId.isValid(snapshotId)) {
+        snapshot = await RepositorySnapshot.findOne({
+          _id: snapshotId,
+          repositoryId: resolvedRepoId,
+          status: "completed",
+        });
       }
     } else {
       snapshot = await RepositorySnapshot.findOne({
-        repositoryId: repoId,
+        repositoryId: resolvedRepoId,
         status: "completed",
       }).sort({ createdAt: -1 });
+    }
 
-      if (!snapshot) {
-        return res.status(404).json({ error: "No completed snapshot found for this repository" });
-      }
+    if (!snapshot) {
+      return res.json({
+        status: "not_indexed",
+        repository,
+        message: "Repository AST indexing is required before visualizer can be loaded.",
+        stats: { nodeCount: 0, edgeCount: 0, fileCount: 0 },
+        nodes: [],
+        edges: [],
+        snapshot: null,
+      });
     }
 
     // 4. Query symbols for snapshot
     const symbolQuery = {
-      repositoryId: repoId,
+      repositoryId: resolvedRepoId,
       snapshotId: snapshot._id,
     };
     if (filePath) {
@@ -732,7 +736,7 @@ const getRepositoryGraph = async (req, res) => {
 
     // 6. Query relations for snapshot (without populating full symbols)
     const relationQuery = {
-      repositoryId: repoId,
+      repositoryId: resolvedRepoId,
       snapshotId: snapshot._id,
     };
 

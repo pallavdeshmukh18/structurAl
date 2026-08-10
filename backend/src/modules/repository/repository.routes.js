@@ -27,10 +27,28 @@ router.post("/:id/index", optionalAuth, triggerRepositoryIndexing);
 router.get("/:id/snapshots", optionalAuth, getRepositorySnapshots);
 router.get("/:id/symbols", optionalAuth, getRepositorySymbols);
 router.get("/:id/relations", optionalAuth, getRepositoryRelations);
-router.get("/:id/graph", isAuthenticated, getRepositoryGraph);
-router.get("/:id/tree", isAuthenticated, getRepositoryTree);
-router.get("/:id/contents", isAuthenticated, getRepositoryFileContent);
-router.get("/:id/pulls", isAuthenticated, getRepositoryPullRequests);
-router.get("/:id/pulls/:number", isAuthenticated, getRepositoryPullRequestDetails);
+router.get("/:id/graph", optionalAuth, getRepositoryGraph);
+router.get("/:id/tree", optionalAuth, getRepositoryTree);
+router.get("/:id/contents", optionalAuth, getRepositoryFileContent);
+router.get("/:id/pulls", optionalAuth, getRepositoryPullRequests);
+router.get("/:id/pulls/:number", optionalAuth, getRepositoryPullRequestDetails);
+
+// Support owner/repo pattern routes (e.g. /api/repositories/pallavdeshmukh18/structurAl/graph)
+router.get("/:owner/:repo/graph", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryGraph(req, res, next);
+});
+router.get("/:owner/:repo/status", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryStatus(req, res, next);
+});
+router.post("/:owner/:repo/index", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return triggerRepositoryIndexing(req, res, next);
+});
+router.get("/:owner/:repo", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryById(req, res, next);
+});
 
 module.exports = router;

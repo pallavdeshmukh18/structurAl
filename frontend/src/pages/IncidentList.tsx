@@ -34,6 +34,7 @@ interface IncidentItem {
     url?: string;
     branch?: string;
     prNumber?: number;
+    repoFullName?: string;
   };
   createdAt: string;
 }
@@ -318,8 +319,17 @@ export function IncidentList() {
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-800">
-                        {incident.repositoryId?.github?.name || incident.repositoryId?.github?.fullName || "General System"}
+                      <div className="text-sm font-semibold text-slate-800">
+                        {incident.repositoryId?._id ? (
+                          <Link
+                            to={`/repository/${incident.repositoryId._id}`}
+                            className="hover:text-indigo-600 transition-colors"
+                          >
+                            {incident.repositoryId?.github?.fullName || incident.repositoryId?.github?.name || "pallavdeshmukh18/structurAl"}
+                          </Link>
+                        ) : (
+                          <span>{incident.repositoryId?.github?.fullName || incident.metadata?.repoFullName || "pallavdeshmukh18/structurAl"}</span>
+                        )}
                       </div>
                       {incident.repositoryId?.language && (
                         <span className="text-xs text-slate-500 font-mono">

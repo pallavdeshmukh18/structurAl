@@ -33,12 +33,13 @@ import {
   Network,
   X,
   ArrowLeft,
+  ArrowRight,
   ArrowRightLeft,
   Package,
   ChevronRight,
   FolderGit2,
   Compass,
-  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -98,9 +99,11 @@ export interface GraphEdge {
 }
 
 export interface GraphResponse {
-  repositoryId: string;
-  snapshot: GraphSnapshot;
-  stats: GraphStats;
+  repositoryId?: string;
+  status?: string;
+  message?: string;
+  snapshot?: GraphSnapshot | null;
+  stats?: GraphStats;
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
@@ -442,6 +445,49 @@ export function RepositoryVisualizer() {
   const [symbolTypeFilter, setSymbolTypeFilter] = useState<string>("all");
   const [relationTypeFilter, setRelationTypeFilter] = useState<string>("all");
 
+  const [isTriggeringIndex, setIsTriggeringIndex] = useState<boolean>(false);
+
+  const handleTriggerIndex = async () => {
+    const targetId = repoDetails?._id || repoIdParam;
+    if (!targetId) return;
+    setIsTriggeringIndex(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/repositories/${targetId}/index`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        // Poll for completion every 3 seconds
+        const pollInterval = setInterval(async () => {
+          try {
+            const graphRes = await fetch(`${API_BASE_URL}/api/repositories/${targetId}/graph`, {
+              credentials: "include",
+            });
+            if (graphRes.ok) {
+              const data: GraphResponse = await graphRes.json();
+              if (data.nodes && data.nodes.length > 0) {
+                setGraphData(data);
+                setError(null);
+                setIsTriggeringIndex(false);
+                clearInterval(pollInterval);
+              }
+            }
+          } catch {
+            // Ignore polling errors
+          }
+        }, 3000);
+      } else {
+        setIsTriggeringIndex(false);
+      }
+    } catch (err) {
+      console.error("Failed to trigger indexing:", err);
+      setIsTriggeringIndex(false);
+    }
+  };
+
   const fetchGraphAndRepo = useCallback(async (targetRepoId: string) => {
     if (!targetRepoId || targetRepoId === "undefined" || targetRepoId === "null") {
       setLoading(false);
@@ -475,7 +521,13 @@ export function RepositoryVisualizer() {
 
       if (graphRes.ok) {
         const data: GraphResponse = await graphRes.json();
-        setGraphData(data);
+        if (data.status === "not_indexed" || !data.nodes || data.nodes.length === 0) {
+          setErrorType("no_snapshot");
+          setError("Repository has not been indexed yet. Trigger indexing to parse AST symbols.");
+        } else {
+          setGraphData(data);
+          setError(null);
+        }
       } else {
         const errData = await graphRes.json().catch(() => ({}));
         if (graphRes.status === 401) {
@@ -987,7 +1039,7 @@ export function RepositoryVisualizer() {
   const repoDisplayName =
     repoDetails?.github?.name ||
     (repoDetails?.github?.fullName ? repoDetails.github.fullName.split("/").pop() : null) ||
-    (graphData ? `Repository (${graphData.repositoryId.slice(0, 8)})` : "Repository Visualizer");
+    (graphData?.repositoryId ? `Repository (${graphData.repositoryId.slice(0, 8)})` : "Repository Visualizer");
 
   const repoFullName =
     repoDetails?.github?.fullName ||
@@ -1127,7 +1179,7 @@ export function RepositoryVisualizer() {
             </div>
             <div>
               <div className="text-[11px] text-slate-500 font-medium">Symbols</div>
-              <div className="text-base font-bold text-slate-900">{graphData.stats.nodeCount}</div>
+              <div className="text-base font-bold text-slate-900">{graphData.stats?.nodeCount ?? graphData.nodes?.length ?? 0}</div>
             </div>
           </div>
 
@@ -1137,7 +1189,7 @@ export function RepositoryVisualizer() {
             </div>
             <div>
               <div className="text-[11px] text-slate-500 font-medium">Relations</div>
-              <div className="text-base font-bold text-slate-900">{graphData.stats.edgeCount}</div>
+              <div className="text-base font-bold text-slate-900">{graphData.stats?.edgeCount ?? graphData.edges?.length ?? 0}</div>
             </div>
           </div>
 
@@ -1147,7 +1199,7 @@ export function RepositoryVisualizer() {
             </div>
             <div>
               <div className="text-[11px] text-slate-500 font-medium">Files</div>
-              <div className="text-base font-bold text-slate-900">{graphData.stats.fileCount}</div>
+              <div className="text-base font-bold text-slate-900">{graphData.stats?.fileCount ?? 0}</div>
             </div>
           </div>
 
@@ -1184,7 +1236,7 @@ export function RepositoryVisualizer() {
                 {branchName} {commitShaShort ? `(${commitShaShort})` : ""}
               </div>
               <div className="text-xs font-bold text-emerald-600">
-                {graphData.snapshot.status === "completed" ? "Indexed" : graphData.snapshot.status}
+                {graphData.snapshot?.status === "completed" ? "Indexed" : (graphData.snapshot?.status || "Indexed")}
               </div>
             </div>
           </div>
@@ -1342,26 +1394,51 @@ export function RepositoryVisualizer() {
               </div>
             ) : error ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-700 p-8 text-center space-y-4">
-                <div className="p-3 bg-rose-50 border border-rose-100 rounded-full text-rose-500">
-                  <AlertCircle className="w-8 h-8" />
+                <div className={`p-3 rounded-full ${errorType === "no_snapshot" ? "bg-indigo-50 border border-indigo-100 text-indigo-500" : "bg-rose-50 border border-rose-100 text-rose-500"}`}>
+                  {errorType === "no_snapshot" ? <Sparkles className="w-8 h-8 text-indigo-600 animate-pulse" /> : <AlertCircle className="w-8 h-8" />}
                 </div>
                 <div className="max-w-md">
                   <h3 className="text-base font-semibold text-slate-900 mb-1">
-                    {errorType === "not_found" && !repoIdParam ? "No Repositories Found" : "Unable to Load Visualizer"}
+                    {errorType === "no_snapshot"
+                      ? "AST Indexing Required"
+                      : errorType === "not_found" && !repoIdParam
+                      ? "No Repositories Found"
+                      : "Unable to Load Visualizer"}
                   </h3>
                   <p className="text-xs text-slate-500">{error}</p>
                 </div>
-                {errorType === "not_found" && !repoIdParam ? (
+                {errorType === "no_snapshot" ? (
+                  <div className="flex flex-col items-center space-y-3">
+                    <button
+                      onClick={handleTriggerIndex}
+                      disabled={isTriggeringIndex}
+                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-200 transition-all disabled:opacity-50"
+                    >
+                      {isTriggeringIndex ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Parsing AST & Indexing Symbols...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>⚡ Index Repository in structur.aI</span>
+                        </>
+                      )}
+                    </button>
+                    {isTriggeringIndex && (
+                      <p className="text-[11px] text-slate-400 font-mono animate-pulse">
+                        Scanning files, building symbols & dependency graph...
+                      </p>
+                    )}
+                  </div>
+                ) : errorType === "not_found" && !repoIdParam ? (
                   <Link
                     to="/dashboard"
                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-medium transition-colors shadow-sm"
                   >
                     Go to Dashboard
                   </Link>
-                ) : errorType === "no_snapshot" ? (
-                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
-                    Trigger repository indexing from the Dashboard to build the graph.
-                  </p>
                 ) : null}
               </div>
             ) : activeGraph.nodes.length === 0 ? (
