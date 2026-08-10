@@ -3,8 +3,11 @@ import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/Card";
 import { AnimatedBackground } from "../components/ui/AnimatedBackground";
 import { Mail, Terminal, ArrowLeft } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export function SignIn() {
+  const { loginWithGitHub, error, clearError } = useAuth();
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center relative p-4">
       <AnimatedBackground />
@@ -19,6 +22,13 @@ export function SignIn() {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Welcome back</h1>
           <p className="text-slate-600 mt-2">Sign in to your StructurAI account</p>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={clearError} className="text-rose-500 hover:text-rose-700 font-bold ml-2">✕</button>
+          </div>
+        )}
 
         <Card className="shadow-xl shadow-indigo-100/50 border-slate-200/60 bg-white/80 backdrop-blur-xl">
           <CardHeader className="space-y-1 pb-4">
@@ -61,7 +71,7 @@ export function SignIn() {
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-10 text-sm bg-white">
+              <Button variant="outline" className="h-10 text-sm bg-white cursor-pointer" onClick={loginWithGitHub}>
                 <Terminal className="mr-2 h-4 w-4" />
                 Github
               </Button>
