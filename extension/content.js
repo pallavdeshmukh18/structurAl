@@ -168,6 +168,46 @@
   }
 
   /**
+   * Find Target Container in GitHub DOM (supports React UI, Primer, and legacy layouts)
+   */
+  function findTargetPlacement() {
+    // 1. Code button container (Modern GitHub React UI)
+    const codeBtn =
+      document.querySelector("#code-button-at-repo-root") ||
+      document.querySelector("get-repo") ||
+      document.querySelector("[data-testid='code-button']") ||
+      document.querySelector("button[data-component='IconButton'][aria-label='Code']");
+
+    if (codeBtn && codeBtn.parentElement) {
+      return { parent: codeBtn.parentElement, referenceNode: codeBtn };
+    }
+
+    // 2. React Primer flex box or file navigation bar
+    const actionContainer =
+      document.querySelector(".types__StyledBox-sc-16pglc1-0") ||
+      document.querySelector("div[data-component='Box'][class*='Box']") ||
+      document.querySelector(".file-navigation");
+
+    if (actionContainer) {
+      return { parent: actionContainer, referenceNode: null };
+    }
+
+    // 3. Top pagehead actions (Star / Fork list)
+    const pageheadActions = document.querySelector("ul.pagehead-actions");
+    if (pageheadActions) {
+      return { parent: pageheadActions, referenceNode: pageheadActions.firstChild, isListItem: true };
+    }
+
+    // 4. Fallback: repository container header
+    const repoHeader = document.querySelector("#repository-container-header");
+    if (repoHeader) {
+      return { parent: repoHeader, referenceNode: null };
+    }
+
+    return null;
+  }
+
+  /**
    * Inject Index Button into GitHub DOM
    */
   function injectIndexButton() {
@@ -177,16 +217,13 @@
     // Idempotency: Skip if button already exists in DOM
     if (document.getElementById(BUTTON_ID)) return;
 
-    // Target candidate containers in priority order
-    const fileNav = document.querySelector(".file-navigation");
-    const pageheadActions = document.querySelector("ul.pagehead-actions");
-    const headerBox = document.querySelector("#repository-container-header div[data-component='Box']");
-
-    const container = fileNav || pageheadActions || headerBox;
-    if (!container) return;
+    const placement = findTargetPlacement();
+    if (!placement || !placement.parent) {
+      return;
+    }
 
     // Create wrapper & button element
-    const wrapper = document.createElement(pageheadActions && container === pageheadActions ? "li" : "div");
+    const wrapper = document.createElement(placement.isListItem ? "li" : "div");
     wrapper.className = "structurai-btn-container";
 
     const btn = document.createElement("button");
@@ -207,13 +244,11 @@
 
     wrapper.appendChild(btn);
 
-    // Insert cleanly into selected target
-    if (fileNav && container === fileNav) {
-      fileNav.appendChild(wrapper);
-    } else if (pageheadActions && container === pageheadActions) {
-      pageheadActions.insertBefore(wrapper, pageheadActions.firstChild);
+    // Insert adjacent to reference node or append to container
+    if (placement.referenceNode) {
+      placement.parent.insertBefore(wrapper, placement.referenceNode);
     } else {
-      container.appendChild(wrapper);
+      placement.parent.appendChild(wrapper);
     }
 
     console.log(`[structur.aI] Button injected successfully for ${repoDetails.fullName}`);
