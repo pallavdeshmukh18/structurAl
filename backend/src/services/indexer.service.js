@@ -133,36 +133,42 @@ class IndexerService {
           continue;
         }
 
-        const parseResult = parseSourceFile(file.path, file.content || "");
-        parsedFileCount++;
-        totalLines += parseResult.lineCount || 0;
+        try {
+          const parseResult = parseSourceFile(file.path, file.content || "");
+          parsedFileCount++;
+          totalLines += parseResult.lineCount || 0;
 
-        for (const sym of parseResult.symbols) {
-          if (sym.symbol.type === "function" || sym.symbol.type === "method") functionCount++;
-          if (sym.symbol.type === "class" || sym.symbol.type === "interface") classCount++;
-          if (sym.symbol.type === "route") routeCount++;
+          for (const sym of parseResult.symbols) {
+            if (sym.symbol.type === "function" || sym.symbol.type === "method") functionCount++;
+            if (sym.symbol.type === "class" || sym.symbol.type === "interface") classCount++;
+            if (sym.symbol.type === "route") routeCount++;
 
-          rawSymbolsToInsert.push({
-            repositoryId: repository._id,
-            snapshotId: snapshot._id,
-            filePath: sym.filePath,
-            symbol: sym.symbol,
-            location: sym.location,
-            signature: sym.signature,
-            metadata: sym.metadata,
-            codeHash: sym.codeHash,
-            parentTempId: sym.parentTempId || null,
-            tempId: sym.tempId || null,
-          });
-        }
+            rawSymbolsToInsert.push({
+              repositoryId: repository._id,
+              snapshotId: snapshot._id,
+              filePath: sym.filePath,
+              symbol: sym.symbol,
+              location: sym.location,
+              signature: sym.signature,
+              metadata: sym.metadata,
+              codeHash: sym.codeHash,
+              parentTempId: sym.parentTempId || null,
+              tempId: sym.tempId || null,
+            });
+          }
 
-        for (const rel of parseResult.relations) {
-          rawRelationsToProcess.push({
-            repositoryId: repository._id,
-            snapshotId: snapshot._id,
-            filePath: file.path,
-            ...rel,
-          });
+          for (const rel of parseResult.relations) {
+            rawRelationsToProcess.push({
+              repositoryId: repository._id,
+              snapshotId: snapshot._id,
+              filePath: file.path,
+              ...rel,
+            });
+          }
+        } catch (parseErr) {
+          const safeErr = sanitizeError(parseErr.message || parseErr);
+          console.warn(`[IndexerService] Skipped file ${file.path} (repository: ${repository._id}, snapshot: ${snapshot._id}) due to parsing error:`, safeErr);
+          unsupportedFiles.push(file.path);
         }
       }
 
