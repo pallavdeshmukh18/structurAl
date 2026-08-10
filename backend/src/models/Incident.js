@@ -23,16 +23,27 @@ const incidentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    description: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     severity: {
       type: String,
-      enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+      enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
       default: "MEDIUM",
       required: true,
     },
     status: {
       type: String,
-      enum: ["OPEN", "INVESTIGATING", "FIX_GENERATED", "RESOLVED", "IGNORED"],
+      enum: ["OPEN", "INVESTIGATING", "IN_PROGRESS", "FIX_GENERATED", "RESOLVED", "IGNORED"],
       default: "OPEN",
+      required: true,
+    },
+    source: {
+      type: String,
+      enum: ["GITHUB_PUSH", "GITHUB_PR", "GITHUB_PING", "OTEL_TRACE", "MANUAL"],
+      default: "GITHUB_PUSH",
       required: true,
     },
     error: {
@@ -97,6 +108,44 @@ const incidentSchema = new mongoose.Schema(
         default: null,
       },
     },
+    metadata: {
+      commitSha: {
+        type: String,
+        default: null,
+      },
+      author: {
+        type: String,
+        default: null,
+      },
+      url: {
+        type: String,
+        default: null,
+      },
+      branch: {
+        type: String,
+        default: null,
+      },
+      addedFiles: {
+        type: [String],
+        default: [],
+      },
+      modifiedFiles: {
+        type: [String],
+        default: [],
+      },
+      removedFiles: {
+        type: [String],
+        default: [],
+      },
+      prNumber: {
+        type: Number,
+        default: null,
+      },
+      prAction: {
+        type: String,
+        default: null,
+      },
+    },
     occurrenceCount: {
       type: Number,
       default: 1,
@@ -123,6 +172,7 @@ incidentSchema.index({ repositoryId: 1, status: 1 });
 incidentSchema.index({ repositoryId: 1, severity: 1 });
 incidentSchema.index({ repositoryId: 1, createdAt: -1 });
 incidentSchema.index({ traceId: 1 });
+incidentSchema.index({ "metadata.commitSha": 1 });
 
 const Incident = mongoose.model("Incident", incidentSchema);
 
