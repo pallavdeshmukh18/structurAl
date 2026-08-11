@@ -11,6 +11,10 @@ import {
   GitPullRequest,
   Network,
   Activity,
+  Globe,
+  MessageSquare,
+  Send,
+  ArrowRight
 } from "lucide-react";
 
 export function MarketingLayout() {
@@ -40,9 +44,9 @@ export function MarketingLayout() {
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900 relative">
       <AnimatedBackground />
       {/* Header */}
-      <header className="bg-white/85 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center space-x-2.5 group">
+      <header className="bg-transparent absolute top-0 w-full z-50">
+        <div className="max-w-[1400px] mx-auto px-6 h-24 flex items-center justify-between relative">
+          <Link to="/" className="flex items-center space-x-2.5 group z-10 relative">
             <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
               <span className="text-white font-extrabold text-lg">S</span>
             </div>
@@ -51,19 +55,16 @@ export function MarketingLayout() {
             </span>
           </Link>
 
-          <nav className="hidden md:flex space-x-8">
-            <a href="#features" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-              Features
+          <nav className="hidden md:flex space-x-12 absolute left-1/2 transform -translate-x-1/2">
+            <a href="#features" className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest">
+              Capabilities
             </a>
-            <a href="#how-it-works" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-              How it Works
-            </a>
-            <a href="#pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-              Pricing
+            <a href="#how-it-works" className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest">
+              Extension
             </a>
           </nav>
 
-          <div className="flex items-center space-x-3.5">
+          <div className="flex items-center space-x-3.5 z-10 relative">
             {user ? (
               <>
                 {/* Direct link to Dashboard */}
@@ -182,8 +183,8 @@ export function MarketingLayout() {
                   Sign In
                 </Link>
                 <Link to="/signin">
-                  <Button variant="primary" className="shadow-md shadow-indigo-200">
-                    Get Started
+                  <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-900 hover:text-white rounded-none px-6 uppercase tracking-widest text-xs font-bold shadow-none">
+                    Login
                   </Button>
                 </Link>
               </>
@@ -198,17 +199,27 @@ export function MarketingLayout() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 bg-white border-t border-slate-200 py-12 mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
-          <div className="flex items-center space-x-2 mb-4 md:mb-0">
-            <div className="w-6 h-6 bg-slate-800 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-xs">S</span>
-            </div>
-            <span className="text-sm font-semibold text-slate-900">StructurAI</span>
+      <footer className="relative z-10 bg-slate-900 text-white py-12">
+        <div className="max-w-[1400px] mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+          {/* Left */}
+          <div className="text-xs text-slate-500 font-mono tracking-widest uppercase">
+            &copy; StructurAI {new Date().getFullYear()}
           </div>
-          <p className="text-sm text-slate-500">
-            &copy; {new Date().getFullYear()} StructurAI Inc. All rights reserved.
-          </p>
+          
+          {/* Center */}
+          <div className="flex items-center justify-center space-x-8">
+             <Globe className="w-4 h-4 text-slate-500 hover:text-white transition-colors cursor-pointer" />
+             <MessageSquare className="w-4 h-4 text-slate-500 hover:text-white transition-colors cursor-pointer" />
+             <Send className="w-4 h-4 text-slate-500 hover:text-white transition-colors cursor-pointer" />
+          </div>
+          
+          {/* Right */}
+          <div className="flex justify-end">
+            <div className="flex items-center border-b border-slate-600 pb-2 group w-64 justify-between">
+              <input type="email" placeholder="Join our mailing list" className="bg-transparent outline-none text-xs placeholder-slate-500 text-white flex-1" />
+              <ArrowRight className="w-3 h-3 text-slate-500 group-hover:text-white transition-colors cursor-pointer" />
+            </div>
+          </div>
         </div>
       </footer>
     </div>
