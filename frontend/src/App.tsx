@@ -38,6 +38,8 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/incidents" element={<IncidentList />} />
             <Route path="/incidents/:id" element={<IncidentDetail />} />
+            <Route path="/repository" element={<Repository />} />
+            <Route path="/repositories" element={<Repository />} />
             <Route path="/repository/:id" element={<Repository />} />
             <Route path="/repository/:id/visualizer" element={<RepositoryVisualizer />} />
             <Route path="/repository/visualizer" element={<RepositoryVisualizer />} />
