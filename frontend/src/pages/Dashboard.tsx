@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
+import { AnimatedBackground } from "../components/ui/AnimatedBackground";
 import {
   Activity,
   ShieldAlert,
@@ -251,9 +252,11 @@ export function Dashboard() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
+      <AnimatedBackground animate={false} />
+
       {/* Header with Authenticated GitHub Identity */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white/80 backdrop-blur-md p-6 rounded-2xl border border-slate-200/80 shadow-sm relative z-10">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Welcome back, {user?.name || "Developer"}
@@ -263,7 +266,7 @@ export function Dashboard() {
           </p>
         </div>
         {user && (
-          <div className="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+          <div className="flex items-center space-x-3 bg-slate-50/80 backdrop-blur-sm p-2.5 rounded-xl border border-slate-200/80">
             <img
               src={user.avatarUrl || "https://github.com/ghost.png"}
               alt={user.name}
@@ -409,7 +412,7 @@ export function Dashboard() {
                 return (
                   <div
                     key={cardId}
-                    className="flex flex-col justify-between p-5 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm transition-all"
+                    className="flex flex-col justify-between p-5 rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-md hover:border-indigo-300 hover:shadow-md transition-all"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">

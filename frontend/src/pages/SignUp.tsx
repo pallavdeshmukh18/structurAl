@@ -15,9 +15,10 @@ export function SignUp() {
       </Link>
 
       <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img src="/logo.png" alt="StructurAI Logo" className="w-12 h-12 rounded-xl mb-3 object-contain shadow-md" />
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Create an account</h1>
-          <p className="text-slate-600 mt-2">Start using StructurAI today</p>
+          <p className="text-slate-600 mt-1">Start using structur.aI today</p>
         </div>
 
         <Card className="shadow-xl shadow-indigo-100/50 border-slate-200/60 bg-white/80 backdrop-blur-xl">

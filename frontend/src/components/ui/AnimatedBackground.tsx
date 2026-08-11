@@ -1,4 +1,8 @@
-export function AnimatedBackground() {
+interface AnimatedBackgroundProps {
+  animate?: boolean;
+}
+
+export function AnimatedBackground({ animate = true }: AnimatedBackgroundProps) {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       <svg
@@ -7,25 +11,25 @@ export function AnimatedBackground() {
         preserveAspectRatio="none"
       >
         <path
-          className="animate-wave-slow stroke-indigo-600"
+          className={`${animate ? "animate-wave-slow" : ""} stroke-indigo-600`}
           fill="none"
           strokeWidth="0.5"
           d="M0,50 Q25,20 50,50 T100,50 T150,50 T200,50 T250,50 T300,50 T350,50 T400,50"
         />
         <path
-          className="animate-wave-medium stroke-violet-600"
+          className={`${animate ? "animate-wave-medium" : ""} stroke-violet-600`}
           fill="none"
           strokeWidth="0.5"
           d="M0,40 Q25,70 50,40 T100,40 T150,40 T200,40 T250,40 T300,40 T350,40 T400,40"
         />
         <path
-          className="animate-wave-fast stroke-indigo-400"
+          className={`${animate ? "animate-wave-fast" : ""} stroke-indigo-400`}
           fill="none"
           strokeWidth="0.3"
           d="M0,60 Q25,30 50,60 T100,60 T150,60 T200,60 T250,60 T300,60 T350,60 T400,60"
         />
         <path
-          className="animate-wave-slow stroke-violet-400"
+          className={`${animate ? "animate-wave-slow" : ""} stroke-violet-400`}
           fill="none"
           strokeWidth="0.4"
           d="M0,45 Q25,15 50,45 T100,45 T150,45 T200,45 T250,45 T300,45 T350,45 T400,45"

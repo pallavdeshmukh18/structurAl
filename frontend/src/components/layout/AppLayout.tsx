@@ -1,11 +1,23 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, AlertTriangle, GitPullRequest, Activity, FolderGit2, LogOut, Network } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  AlertTriangle, 
+  GitPullRequest, 
+  Activity, 
+  FolderGit2, 
+  LogOut, 
+  Network,
+  PanelLeftClose,
+  PanelLeftOpen
+} from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { useAuth } from "../../context/AuthContext";
 
 export function AppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
 
   // Extract repo ID from location.pathname if currently inside /repository/:id or /repository/:id/visualizer
   const repoIdMatch = location.pathname.match(/\/repository\/([^/]+)/);
@@ -39,19 +51,37 @@ export function AppLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
-            <span className="text-lg font-bold text-slate-900">StructurAI</span>
+    <div className="min-h-screen bg-slate-50 flex relative">
+      {/* Sidebar - Solid Opaque bg-white with VS Code style collapse option */}
+      <aside 
+        className={`${
+          collapsed ? "w-16" : "w-64"
+        } bg-white border-r border-slate-200 flex flex-col hidden md:flex transition-all duration-300 z-20 relative shadow-sm`}
+      >
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
+          <Link to="/" className="flex items-center space-x-2.5 overflow-hidden">
+            <img src="/logo.png" alt="StructurAI Logo" className="w-8 h-8 rounded-lg object-contain shrink-0" />
+            {!collapsed && (
+              <span className="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap">
+                structur<span className="text-indigo-600 font-extrabold">.aI</span>
+              </span>
+            )}
           </Link>
+
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer ml-auto"
+            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="w-5 h-5 text-slate-600" />
+            ) : (
+              <PanelLeftClose className="w-5 h-5 text-slate-600" />
+            )}
+          </button>
         </div>
         
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-2.5 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             
@@ -59,49 +89,56 @@ export function AppLayout() {
               <Link
                 key={item.name}
                 to={item.path}
+                title={collapsed ? item.name : undefined}
                 className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${
+                  collapsed ? "justify-center px-0" : ""
+                } ${
                   item.isActive 
                     ? "bg-indigo-50 text-indigo-700 font-medium" 
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
-                <Icon className={`w-5 h-5 ${item.isActive ? "text-indigo-600" : "text-slate-400"}`} />
-                <span>{item.name}</span>
+                <Icon className={`w-5 h-5 shrink-0 ${item.isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                {!collapsed && <span className="whitespace-nowrap text-sm">{item.name}</span>}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-200">
+        <div className="p-3 border-t border-slate-200">
           <button
             onClick={logout}
-            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 font-medium transition-colors cursor-pointer"
+            title={collapsed ? "Log Out" : undefined}
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 font-medium transition-colors cursor-pointer ${
+              collapsed ? "justify-center px-0" : ""
+            }`}
           >
-            <LogOut className="w-5 h-5 text-rose-500" />
-            <span>Log Out</span>
+            <LogOut className="w-5 h-5 text-rose-500 shrink-0" />
+            {!collapsed && <span className="whitespace-nowrap text-sm">Log Out</span>}
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header - Mobile Only or Profile */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 lg:px-8 shadow-sm z-10">
-          <div className="md:hidden">
-            <span className="text-lg font-bold text-slate-900">StructurAI</span>
-          </div>
-          <div className="flex-1" />
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-slate-700">structurai/core-backend</span>
-              <Badge variant="outline">main</Badge>
+        {/* Top Header - Compact Centered Floating Pill */}
+        <header className="pt-4 pb-2 px-6 flex justify-center z-10">
+          <div className="w-full max-w-3xl bg-white/70 backdrop-blur-md border border-slate-200/70 rounded-2xl h-12 px-6 flex items-center justify-between shadow-sm">
+            <div className="md:hidden">
+              <span className="text-sm font-bold text-slate-900">StructurAI</span>
             </div>
+            
+            <div className="hidden md:flex items-center space-x-2 text-xs font-medium text-slate-600">
+              <span className="font-bold text-slate-900">structurai/core-backend</span>
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5">main</Badge>
+            </div>
+
             {user && (
-              <div className="flex items-center space-x-3 pl-3 border-l border-slate-200">
+              <div className="flex items-center space-x-2.5">
                 <img
                   src={user.avatarUrl || "https://github.com/ghost.png"}
                   alt={user.name}
-                  className="h-8 w-8 rounded-full border border-slate-300 object-cover"
+                  className="h-7 w-7 rounded-full border border-slate-300 object-cover"
                 />
                 <div className="hidden sm:flex flex-col text-left">
                   <span className="text-xs font-semibold text-slate-800">{user.name}</span>

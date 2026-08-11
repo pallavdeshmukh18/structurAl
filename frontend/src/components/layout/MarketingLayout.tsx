@@ -44,27 +44,25 @@ export function MarketingLayout() {
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900 relative">
       <AnimatedBackground />
       {/* Header */}
-      <header className="bg-transparent absolute top-0 w-full z-50">
-        <div className="max-w-[1400px] mx-auto px-6 h-24 flex items-center justify-between relative">
-          <Link to="/" className="flex items-center space-x-2.5 group z-10 relative">
-            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
-              <span className="text-white font-extrabold text-lg">S</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">
+      <header className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 w-[92%] max-w-3xl">
+        <div className="bg-white/70 backdrop-blur-md border border-slate-200/70 rounded-2xl px-6 h-14 flex items-center justify-between shadow-lg shadow-indigo-500/5">
+          <Link to="/" className="flex items-center space-x-2.5 group">
+            <img src="/logo.png" alt="StructurAI Logo" className="w-8 h-8 rounded-lg object-contain group-hover:scale-105 transition-transform" />
+            <span className="text-base font-bold tracking-tight text-slate-900">
               structur<span className="text-indigo-600 font-extrabold">.aI</span>
             </span>
           </Link>
 
-          <nav className="hidden md:flex space-x-12 absolute left-1/2 transform -translate-x-1/2">
-            <a href="#features" className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest">
+          <nav className="hidden sm:flex space-x-8">
+            <a href="#features" className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-wider">
               Capabilities
             </a>
-            <a href="#how-it-works" className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest">
+            <a href="#how-it-works" className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-wider">
               Extension
             </a>
           </nav>
 
-          <div className="flex items-center space-x-3.5 z-10 relative">
+          <div className="flex items-center space-x-3">
             {user ? (
               <>
                 {/* Direct link to Dashboard */}

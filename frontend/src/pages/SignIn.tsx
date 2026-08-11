@@ -18,9 +18,10 @@ export function SignIn() {
       </Link>
 
       <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img src="/logo.png" alt="StructurAI Logo" className="w-12 h-12 rounded-xl mb-3 object-contain shadow-md" />
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Welcome back</h1>
-          <p className="text-slate-600 mt-2">Sign in to your StructurAI account</p>
+          <p className="text-slate-600 mt-1">Sign in to your structur.aI account</p>
         </div>
 
         {error && (
