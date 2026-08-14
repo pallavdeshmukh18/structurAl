@@ -153,11 +153,17 @@ const handleGitHubCallback = async (req, res) => {
     // 6. Establish session
     req.session.userId = user._id.toString();
 
+    console.log("[AUTH] GitHub callback session established", {
+      hasSession: !!req.session,
+      hasUserId: !!req.session?.userId,
+    });
+
     req.session.save((err) => {
       if (err) {
-        console.error("Session save error:", err);
+        console.error("[AUTH] Failed to persist GitHub session:", err);
         return res.redirect(`${frontendUrl}?error=session_error`);
       }
+      console.log("[AUTH] GitHub session persisted");
       return res.redirect(`${frontendUrl}/dashboard`);
     });
   } catch (error) {

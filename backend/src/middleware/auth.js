@@ -2,11 +2,12 @@ const User = require("../models/User");
 
 const isAuthenticated = async (req, res, next) => {
   try {
-    const hasCookieHeader = Boolean(req.headers.cookie);
-    console.log(`[AUTH CHECK] Path: ${req.path} | HasCookieHeader: ${hasCookieHeader} | SessionID: ${req.sessionID} | SessionUserId: ${req.session ? req.session.userId : "none"}`);
+    console.log("[AUTH] /me session check", {
+      hasSession: !!req.session,
+      hasUserId: !!req.session?.userId,
+    });
 
     if (!req.session || !req.session.userId) {
-      console.warn(`[AUTH REJECTED 401] Path: ${req.path} | HasCookieHeader: ${hasCookieHeader} | SessionID: ${req.sessionID}`);
       return res.status(401).json({ error: "Unauthorized" });
     }
 

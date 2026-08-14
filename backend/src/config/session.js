@@ -15,6 +15,13 @@ if (isProduction && (!sessionSecret || sessionSecret === "default_session_secret
   );
 }
 
+console.log("[AUTH STORE INIT]", {
+  store: "MongoStore",
+  collection: "sessions",
+  isProduction,
+  hasMongoUri: Boolean(mongoUri),
+});
+
 const sessionConfig = session({
   secret: sessionSecret || "default_session_secret",
   resave: false,
