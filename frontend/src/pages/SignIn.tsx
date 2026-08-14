@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/Card";
 import { AnimatedBackground } from "../components/ui/AnimatedBackground";
-import { Mail, Terminal, ArrowLeft } from "lucide-react";
+import { Terminal, ArrowLeft } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function SignIn() {
@@ -67,18 +67,18 @@ export function SignIn() {
                 <span className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white/80 px-2 text-slate-500">Or continue with</span>
+                <span className="bg-white/80 px-2 text-slate-500">Or</span>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-10 text-sm bg-white cursor-pointer" onClick={loginWithGitHub}>
-                <Terminal className="mr-2 h-4 w-4" />
-                Github
-              </Button>
-              <Button variant="outline" className="h-10 text-sm bg-white">
-                <Mail className="mr-2 h-4 w-4" />
-                Google
+            <div>
+              <Button 
+                variant="outline" 
+                className="w-full h-10 text-sm bg-white cursor-pointer hover:bg-slate-50 border-slate-300 font-semibold text-slate-800 flex items-center justify-center" 
+                onClick={loginWithGitHub}
+              >
+                <Terminal className="mr-2 h-4 w-4 text-slate-700" />
+                Continue with GitHub
               </Button>
             </div>
           </CardContent>

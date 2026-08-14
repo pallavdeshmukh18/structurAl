@@ -8,23 +8,66 @@ const githubService = require("../../integrations/github/github.service");
 const mongoose = require("mongoose");
 
 /**
+ * Helper to resolve and authorize a repository for the authenticated user (req.user._id).
+ * Returns { repository, status, error }
+ * - 401 if unauthenticated
+ * - 404 if repository does not exist or does not belong to req.user._id
+ */
+const findAuthorizedRepository = async (req, repoIdParam) => {
+  if (!req.user || !req.user._id) {
+    return { repository: null, status: 401, error: "Unauthorized" };
+  }
+
+  const userId = req.user._id;
+  if (!repoIdParam) {
+    return { repository: null, status: 404, error: "Repository not found" };
+  }
+
+  let repository = null;
+
+  // 1. Try finding by MongoDB _id + ownerId
+  if (mongoose.Types.ObjectId.isValid(repoIdParam)) {
+    repository = await Repository.findOne({ _id: repoIdParam, ownerId: userId });
+  }
+
+  // 2. If not found by _id, try finding by github.fullName or github.id + ownerId
+  if (!repository) {
+    const escaped = String(repoIdParam).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const orQueries = [
+      { "github.fullName": { $regex: new RegExp(`^${escaped}$`, "i") } },
+      { "github.name": repoIdParam },
+    ];
+    if (!isNaN(Number(repoIdParam)) && String(Number(repoIdParam)) === String(repoIdParam).trim()) {
+      orQueries.push({ "github.id": Number(repoIdParam) });
+    }
+
+    repository = await Repository.findOne({
+      ownerId: userId,
+      $or: orQueries,
+    });
+  }
+
+  if (!repository) {
+    return { repository: null, status: 404, error: "Repository not found" };
+  }
+
+  return { repository, status: 200, error: null };
+};
+
+/**
  * List user repositories
  * GET /api/repositories
  */
 const listUserRepositories = async (req, res) => {
   try {
-    let userId = req.user?._id;
-    if (!userId) {
-      const cred = await GitHubCredential.findOne({});
-      if (cred) {
-        userId = cred.userId;
-      } else {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // 1. Fetch existing MongoDB repositories
-    const mongoRepos = await Repository.find({}).sort({ updatedAt: -1 });
+    const userId = req.user._id;
+
+    // 1. Fetch existing MongoDB repositories owned strictly by THIS user
+    const mongoRepos = await Repository.find({ ownerId: userId }).sort({ updatedAt: -1 });
 
     // Map MongoDB repositories by github.id & github.fullName
     const mongoRepoMap = new Map();
@@ -37,12 +80,12 @@ const listUserRepositories = async (req, res) => {
       }
     }
 
-    // 2. Fetch accessible GitHub repositories via OAuth
+    // 2. Fetch accessible GitHub repositories via THIS user's OAuth token
     let githubRepos = [];
     try {
       githubRepos = await githubService.getUserRepositories(userId, { all: true, sort: "updated" });
     } catch (ghErr) {
-      console.warn("Could not fetch user repos from GitHub API:", ghErr.message);
+      console.warn(`Could not fetch user repos from GitHub API for user ${userId}:`, ghErr.message);
     }
 
     const STALE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -118,7 +161,7 @@ const listUserRepositories = async (req, res) => {
       }
     }
 
-    // 4. Also append any MongoDB repository that wasn't in GitHub list (safety fallback)
+    // 4. Also append any MongoDB repository owned by THIS user that wasn't in GitHub list
     for (const mRepo of mongoRepos) {
       const idStr = String(mRepo.github?.id);
       if (!processedGhIds.has(idStr)) {
@@ -163,14 +206,11 @@ const listUserRepositories = async (req, res) => {
  */
 const connectRepository = async (req, res) => {
   try {
-    let userId = req.user?._id;
-    if (!userId) {
-      const cred = await GitHubCredential.findOne({});
-      if (cred) {
-        userId = cred.userId;
-      }
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const userId = req.user._id;
     const { owner, name, fullName, cloneUrl, defaultBranch } = req.body || {};
     let ownerStr = owner ? (typeof owner === "object" ? (owner.login || owner.name) : String(owner)) : null;
     let nameStr = name ? String(name) : null;
@@ -188,15 +228,12 @@ const connectRepository = async (req, res) => {
     const repoFullName = `${ownerStr}/${nameStr}`;
     console.log(`[HTTP Connect] Request received for: "${repoFullName}" (userId: ${userId})`);
 
-    // 1. Verify access via GitHub API or construct fallback
+    // 1. Verify access via GitHub API
     let githubRepo = null;
-    if (userId) {
-      try {
-        githubRepo = await githubService.getRepositoryDetails(userId, ownerStr, nameStr);
-        console.log(`[HTTP Connect] GitHub repo details fetched: ${githubRepo.full_name} (id: ${githubRepo.id})`);
-      } catch (err) {
-        console.warn(`[HTTP Connect] GitHub API getRepositoryDetails warning:`, err.message);
-      }
+    try {
+      githubRepo = await githubService.getRepositoryDetails(userId, ownerStr, nameStr);
+    } catch (err) {
+      console.warn(`[HTTP Connect] GitHub API getRepositoryDetails warning:`, err.message);
     }
 
     if (!githubRepo) {
@@ -212,8 +249,9 @@ const connectRepository = async (req, res) => {
       };
     }
 
-    // 2. Check if already connected
+    // 2. Check if already connected by THIS user
     let repository = await Repository.findOne({
+      ownerId: userId,
       $or: [
         { "github.id": githubRepo.id },
         { "github.fullName": { $regex: new RegExp(`^${repoFullName}$`, "i") } },
@@ -221,7 +259,7 @@ const connectRepository = async (req, res) => {
     });
 
     if (!repository) {
-      // 3. Create repository record
+      // 3. Create repository record for THIS user
       repository = await Repository.create({
         ownerId: userId,
         github: {
@@ -240,9 +278,8 @@ const connectRepository = async (req, res) => {
           error: null,
         },
       });
-      console.log(`[HTTP Connect] Created new Mongo repository record: ${repository._id}`);
+      console.log(`[HTTP Connect] Created new Mongo repository record: ${repository._id} for user ${userId}`);
     } else {
-      if (userId) repository.ownerId = userId;
       repository.github.owner = githubRepo.owner?.login || repository.github.owner || ownerStr;
       repository.github.name = githubRepo.name || repository.github.name || nameStr;
       repository.github.fullName = githubRepo.full_name || repository.github.fullName || repoFullName;
@@ -250,35 +287,33 @@ const connectRepository = async (req, res) => {
       repository.indexing.status = "indexing";
       repository.indexing.error = null;
       await repository.save();
-      console.log(`[HTTP Connect] Updated existing Mongo repository record: ${repository._id}`);
+      console.log(`[HTTP Connect] Updated existing Mongo repository record: ${repository._id} for user ${userId}`);
     }
 
     // 4. Ingest active Pull Requests asynchronously
     (async () => {
       try {
-        if (userId) {
-          const pulls = await githubService.getPullRequests(userId, ownerStr, nameStr, "open");
-          if (Array.isArray(pulls)) {
-            for (const pr of pulls) {
-              await PullRequest.findOneAndUpdate(
-                { repositoryId: repository._id, "github.number": pr.number },
-                {
-                  $set: {
-                    repositoryId: repository._id,
-                    "github.id": pr.id,
-                    "github.number": pr.number,
-                    "github.url": pr.html_url,
-                    "github.baseBranch": pr.base?.ref || "main",
-                    "github.headBranch": pr.head?.ref || "head",
-                    "github.author.username": pr.user?.login || "author",
-                    title: pr.title,
-                    description: pr.body || "",
-                    status: pr.state === "open" ? "OPEN" : "CLOSED",
-                  },
+        const pulls = await githubService.getPullRequests(userId, ownerStr, nameStr, "open");
+        if (Array.isArray(pulls)) {
+          for (const pr of pulls) {
+            await PullRequest.findOneAndUpdate(
+              { repositoryId: repository._id, "github.number": pr.number },
+              {
+                $set: {
+                  repositoryId: repository._id,
+                  "github.id": pr.id,
+                  "github.number": pr.number,
+                  "github.url": pr.html_url,
+                  "github.baseBranch": pr.base?.ref || "main",
+                  "github.headBranch": pr.head?.ref || "head",
+                  "github.author.username": pr.user?.login || "author",
+                  title: pr.title,
+                  description: pr.body || "",
+                  status: pr.state === "open" ? "OPEN" : "CLOSED",
                 },
-                { upsert: true, returnDocument: "after" }
-              );
-            }
+              },
+              { upsert: true, returnDocument: "after" }
+            );
           }
         }
       } catch (prErr) {
@@ -293,18 +328,16 @@ const connectRepository = async (req, res) => {
     (async () => {
       try {
         let commitSha = null;
-        if (userId) {
-          try {
-            const branchDetails = await githubService.getBranchDetails(
-              userId,
-              repository.github.owner,
-              repository.github.name,
-              targetBranch
-            );
-            commitSha = branchDetails?.commit?.sha || null;
-          } catch (e) {
-            commitSha = null;
-          }
+        try {
+          const branchDetails = await githubService.getBranchDetails(
+            userId,
+            repository.github.owner,
+            repository.github.name,
+            targetBranch
+          );
+          commitSha = branchDetails?.commit?.sha || null;
+        } catch (e) {
+          commitSha = null;
         }
 
         console.log(`[HTTP Connect] Launching background indexer for ${repository.github.fullName} (${repository._id})...`);
@@ -312,7 +345,7 @@ const connectRepository = async (req, res) => {
           repository._id,
           commitSha,
           targetBranch,
-          userId || repository.ownerId
+          userId
         );
       } catch (indexErr) {
         console.error(`[BackgroundIndexer] Error indexing ${repository._id}:`, indexErr.stack || indexErr.message || indexErr);
@@ -330,36 +363,15 @@ const connectRepository = async (req, res) => {
   }
 };
 
-const findRepositoryByIdentifier = async (repoId) => {
-  if (!repoId) return null;
-  if (mongoose.Types.ObjectId.isValid(repoId)) {
-    const byId = await Repository.findById(repoId);
-    if (byId) return byId;
-  }
-  const escaped = String(repoId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const orQueries = [
-    { "github.fullName": { $regex: new RegExp(`^${escaped}$`, "i") } },
-    { "github.name": repoId },
-  ];
-  if (!isNaN(Number(repoId)) && String(Number(repoId)) === String(repoId).trim()) {
-    orQueries.push({ "github.id": Number(repoId) });
-  }
-  const bySlug = await Repository.findOne({ $or: orQueries });
-  if (bySlug) return bySlug;
-
-  return null;
-};
-
 /**
  * Get repository indexing status
  * GET /api/repositories/:id/status
  */
 const getRepositoryStatus = async (req, res) => {
   try {
-    const repoId = req.params.id;
-    const repository = await findRepositoryByIdentifier(repoId);
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
 
     return res.json({
@@ -381,15 +393,9 @@ const getRepositoryStatus = async (req, res) => {
  */
 const getRepositoryById = async (req, res) => {
   try {
-    const repoId = req.params.id;
-
-    let repository = await findRepositoryByIdentifier(repoId);
-    if (!repository) {
-      repository = (await Repository.findOne({ "indexing.status": "ready" })) || (await Repository.findOne({}));
-    }
-
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
 
     return res.json({ repository });
@@ -405,19 +411,14 @@ const getRepositoryById = async (req, res) => {
  */
 const triggerRepositoryIndexing = async (req, res) => {
   try {
-    const userId = req.user?._id;
-    const repoId = req.params.id;
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
+    const userId = req.user._id;
     const { branch } = req.body || {};
 
-    let repository = await findRepositoryByIdentifier(repoId);
-
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found in database" });
-    }
-
-    if (userId) {
-      repository.ownerId = userId;
-    }
     repository.indexing.status = "indexing";
     repository.indexing.stage = "fetching_files";
     repository.indexing.error = null;
@@ -429,25 +430,23 @@ const triggerRepositoryIndexing = async (req, res) => {
     (async () => {
       try {
         let commitSha = null;
-        if (userId) {
-          try {
-            const branchDetails = await githubService.getBranchDetails(
-              userId,
-              repository.github.owner,
-              repository.github.name,
-              targetBranch
-            );
-            commitSha = branchDetails?.commit?.sha || null;
-          } catch (e) {
-            commitSha = null;
-          }
+        try {
+          const branchDetails = await githubService.getBranchDetails(
+            userId,
+            repository.github.owner,
+            repository.github.name,
+            targetBranch
+          );
+          commitSha = branchDetails?.commit?.sha || null;
+        } catch (e) {
+          commitSha = null;
         }
 
         await indexerService.startIndexing(
           repository._id,
           commitSha,
           targetBranch,
-          userId || repository.ownerId
+          userId
         );
       } catch (indexErr) {
         console.error(`[BackgroundIndexer] Error indexing ${repository._id}:`, indexErr.message || indexErr);
@@ -471,10 +470,9 @@ const triggerRepositoryIndexing = async (req, res) => {
  */
 const getRepositorySnapshots = async (req, res) => {
   try {
-    const repoId = req.params.id;
-    const repository = await findRepositoryByIdentifier(repoId);
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
 
     const snapshots = await RepositorySnapshot.find({ repositoryId: repository._id })
@@ -494,20 +492,13 @@ const getRepositorySnapshots = async (req, res) => {
  */
 const getRepositorySymbols = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const repoId = req.params.id;
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
     const { snapshotId, filePath } = req.query;
-
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const query = { repositoryId: repoId };
+    const query = { repositoryId: repository._id };
     if (snapshotId && mongoose.Types.ObjectId.isValid(snapshotId)) {
       query.snapshotId = snapshotId;
     }
@@ -532,20 +523,13 @@ const getRepositorySymbols = async (req, res) => {
  */
 const getRepositoryRelations = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const repoId = req.params.id;
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
     const { snapshotId } = req.query;
-
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const query = { repositoryId: repoId };
+    const query = { repositoryId: repository._id };
     if (snapshotId && mongoose.Types.ObjectId.isValid(snapshotId)) {
       query.snapshotId = snapshotId;
     }
@@ -568,19 +552,12 @@ const getRepositoryRelations = async (req, res) => {
  */
 const getRepositoryTree = async (req, res) => {
   try {
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
     const userId = req.user._id;
-    const repoId = req.params.id;
-    const path = req.query.path || "";
-
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
     const { owner, name, defaultBranch } = repository.github;
     
     // Get the full recursive tree for the default branch
@@ -599,23 +576,17 @@ const getRepositoryTree = async (req, res) => {
  */
 const getRepositoryFileContent = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const repoId = req.params.id;
     const path = req.query.path;
-
     if (!path) {
       return res.status(400).json({ error: "Path parameter is required" });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(repoId)) {
-      return res.status(404).json({ error: "Repository not found" });
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
 
-    const repository = await Repository.findOne({ _id: repoId, ownerId: userId });
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
+    const userId = req.user._id;
     const { owner, name, defaultBranch } = repository.github;
     const fileData = await githubService.getFileContent(userId, owner, name, path, defaultBranch);
 
@@ -632,28 +603,20 @@ const getRepositoryFileContent = async (req, res) => {
  */
 const getRepositoryPullRequests = async (req, res) => {
   try {
-    let userId = req.user?._id;
-    if (!userId) {
-      const cred = await GitHubCredential.findOne({});
-      if (cred) userId = cred.userId;
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
-    const repoId = req.params.id;
+
+    const userId = req.user._id;
     const state = req.query.state || "open";
-
-    const repository = await findRepositoryByIdentifier(repoId);
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
     const { owner, name } = repository.github;
     let pulls = [];
 
-    if (userId) {
-      try {
-        pulls = await githubService.getPullRequests(userId, owner, name, state);
-      } catch (err) {
-        console.warn("GitHub getPullRequests API warning:", err.message);
-      }
+    try {
+      pulls = await githubService.getPullRequests(userId, owner, name, state);
+    } catch (err) {
+      console.warn("GitHub getPullRequests API warning:", err.message);
     }
 
     if (!pulls || pulls.length === 0) {
@@ -674,35 +637,7 @@ const getRepositoryPullRequests = async (req, res) => {
       }
     }
 
-    // If still empty, provide high-quality mock PR so the user can test the UI immediately
-    if (!pulls || pulls.length === 0) {
-      pulls = [
-        {
-          id: 77,
-          number: 77,
-          title: `feat(auth): AST token verification & security patch for ${repository.github.name}`,
-          body: "Standardizes auth session verification and implements constant-time signature validation.",
-          state: "open",
-          user: { login: repository.github?.owner || "lead-dev" },
-          head: { ref: "feat/auth-hardening" },
-          base: { ref: repository.github?.defaultBranch || "main" },
-          html_url: `${repository.github?.url || "https://github.com"}/pull/77`,
-        },
-        {
-          id: 42,
-          number: 42,
-          title: `fix(core): sanitize AST parser recursion and optimize symbol indexer`,
-          body: "Resolves memory limits on large TypeScript codebases during symbol extraction.",
-          state: "open",
-          user: { login: "octocat" },
-          head: { ref: "fix/ast-recursion" },
-          base: { ref: repository.github?.defaultBranch || "main" },
-          html_url: `${repository.github?.url || "https://github.com"}/pull/42`,
-        },
-      ];
-    }
-
-    return res.json({ pulls });
+    return res.json({ pulls: pulls || [] });
   } catch (error) {
     console.error("Error fetching repository pull requests:", error.message);
     return res.status(500).json({ error: "Failed to fetch pull requests" });
@@ -715,23 +650,17 @@ const getRepositoryPullRequests = async (req, res) => {
  */
 const getRepositoryPullRequestDetails = async (req, res) => {
   try {
-    let userId = req.user?._id;
-    if (!userId) {
-      const cred = await GitHubCredential.findOne({});
-      if (cred) userId = cred.userId;
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
-    const repoId = req.params.id;
+
+    const userId = req.user._id;
     const pullNumber = parseInt(req.params.pullNumber || req.params.number, 10);
-
-    const repository = await findRepositoryByIdentifier(repoId);
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
     const { owner, name } = repository.github;
     let pullDetails = null;
 
-    if (userId && !isNaN(pullNumber)) {
+    if (!isNaN(pullNumber)) {
       try {
         pullDetails = await githubService.getPullRequestDetails(userId, owner, name, pullNumber);
       } catch (err) {
@@ -740,55 +669,7 @@ const getRepositoryPullRequestDetails = async (req, res) => {
     }
 
     if (!pullDetails) {
-      pullDetails = {
-        pullRequest: {
-          number: pullNumber || 77,
-          title: `PR #${pullNumber || 77}: AST security validation & governance for ${repository.github.name}`,
-          body: `Automated PR review and AST governance scan for ${repository.github.fullName}.`,
-          author: repository.github.owner || "lead-dev",
-          branch: "feat/hardening",
-          targetBranch: repository.github.defaultBranch || "main",
-          status: "OPEN",
-          additions: 42,
-          deletions: 12,
-          changedFiles: 2,
-          url: `${repository.github.url || "https://github.com"}/pull/${pullNumber || 77}`,
-          createdAt: new Date().toISOString(),
-        },
-        files: [
-          {
-            filename: "src/auth/session.service.ts",
-            additions: 13,
-            deletions: 9,
-            patch: `@@ -45,9 +45,13 @@ export class SessionService {
-+  async verifySessionToken(token: string): Promise<AuthSession> {
-+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-+    if (!decoded || !decoded.userId) {
-+      throw new UnauthorizedException("Invalid session signature");
-+    }
-+    return { userId: decoded.userId, scope: decoded.scope };
-+  }
--  legacyTokenVerify(token) {
--    return jwt.decode(token);
--  }`,
-          },
-          {
-            filename: "src/modules/governance/slop.detector.ts",
-            additions: 29,
-            deletions: 3,
-            patch: `@@ -8,3 +8,29 @@ export function evaluateCodeSlop(astTree: AstNode): SlopScore {
-+  const orphanedCalls = findUnreachableNodes(astTree);
-+  const hallucinatedImports = detectUnresolvedDependencies(astTree);
-+  
-+  return {
-+    score: calculateConfidence(orphanedCalls, hallucinatedImports),
-+    hasHallucinations: hallucinatedImports.length > 0,
-+    riskLevel: "LOW"
-+  };
-+ }`,
-          },
-        ],
-      };
+      return res.status(404).json({ error: "Pull request details not found" });
     }
 
     return res.json(pullDetails);
@@ -804,18 +685,12 @@ const getRepositoryPullRequestDetails = async (req, res) => {
  */
 const getRepositoryGraph = async (req, res) => {
   try {
-    const repoId = req.params.id;
-    const { snapshotId, filePath, limit } = req.query;
-
-    let repository = await findRepositoryByIdentifier(repoId);
-    if (!repository) {
-      repository = (await Repository.findOne({ "indexing.status": "ready" })) || (await Repository.findOne({}));
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
     }
 
-    if (!repository) {
-      return res.status(404).json({ error: "Repository not found" });
-    }
-
+    const { snapshotId, filePath, limit } = req.query || {};
     const resolvedRepoId = repository._id;
 
     // 2. Parse limit (default = 1000, max = 2000)
@@ -897,7 +772,7 @@ const getRepositoryGraph = async (req, res) => {
       };
     });
 
-    // 6. Query relations for snapshot (without populating full symbols)
+    // 6. Query relations for snapshot
     const relationQuery = {
       repositoryId: resolvedRepoId,
       snapshotId: snapshot._id,
@@ -946,9 +821,169 @@ const getRepositoryGraph = async (req, res) => {
   }
 };
 
+/**
+ * Helper to parse GitHub URL or owner/repo string into { owner, name }
+ */
+const parseGitHubUrl = (inputUrl) => {
+  if (!inputUrl || typeof inputUrl !== "string") return null;
+  const trimmed = inputUrl.trim();
+
+  // Match https://github.com/owner/repo or http://github.com/owner/repo or git@github.com:owner/repo.git or owner/repo
+  let match = trimmed.match(/github\.com[/:]([^/]+)\/([^/.]+)(?:\.git)?/i);
+  if (match) {
+    return { owner: match[1], name: match[2] };
+  }
+
+  // Fallback match owner/repo if user typed simple owner/repo
+  if (trimmed.includes("/") && !trimmed.includes("http")) {
+    const parts = trimmed.split("/").map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      return { owner: parts[0], name: parts[1].replace(/\.git$/i, "") };
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Add / Import a GitHub repository by URL without auto-indexing
+ * POST /api/repositories/add
+ */
+const addRepositoryByUrl = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const userId = req.user._id;
+    const { url } = req.body || {};
+
+    const parsed = parseGitHubUrl(url);
+    if (!parsed) {
+      return res.status(400).json({
+        error: "Invalid GitHub repository URL. Format should be: https://github.com/owner/repository",
+      });
+    }
+
+    const { owner, name } = parsed;
+    const repoFullName = `${owner}/${name}`;
+
+    // 1. Verify that the authenticated user has access to this repository via GitHub API
+    let githubRepo = null;
+    try {
+      githubRepo = await githubService.getRepositoryDetails(userId, owner, name);
+    } catch (ghErr) {
+      console.warn(`[AddRepo] GitHub API lookup failed for ${repoFullName}:`, ghErr.message);
+      return res.status(400).json({
+        error: `Could not verify access to "${repoFullName}" on GitHub. Make sure the repository exists and your GitHub account has permissions to access it.`,
+      });
+    }
+
+    if (!githubRepo) {
+      return res.status(404).json({ error: `Repository "${repoFullName}" not found on GitHub.` });
+    }
+
+    // 2. Check if this repository is already connected for THIS user
+    const existingRepo = await Repository.findOne({
+      ownerId: userId,
+      $or: [
+        { "github.id": githubRepo.id },
+        { "github.fullName": { $regex: new RegExp(`^${githubRepo.full_name || repoFullName}$`, "i") } },
+      ],
+    });
+
+    if (existingRepo) {
+      return res.status(409).json({
+        error: `Repository "${githubRepo.full_name || repoFullName}" is already connected to your StructurAI account.`,
+        repository: existingRepo,
+      });
+    }
+
+    // 3. Create repository record with status "pending" (Not Indexed) - DO NOT trigger indexing automatically!
+    const repository = await Repository.create({
+      ownerId: userId,
+      github: {
+        id: githubRepo.id,
+        owner: githubRepo.owner?.login || owner,
+        name: githubRepo.name || name,
+        fullName: githubRepo.full_name || repoFullName,
+        defaultBranch: githubRepo.default_branch || "main",
+        url: githubRepo.html_url,
+      },
+      language: githubRepo.language || "TypeScript",
+      visibility: githubRepo.private ? "private" : "public",
+      status: "active",
+      indexing: {
+        status: "pending",
+        stage: "idle",
+        error: null,
+      },
+    });
+
+    console.log(`[AddRepo] Successfully added ${repository.github.fullName} (${repository._id}) for user ${userId}`);
+
+    return res.status(201).json({
+      message: "Repository added successfully",
+      repository,
+    });
+  } catch (error) {
+    console.error("Error adding repository:", error.message);
+    return res.status(500).json({ error: error.message || "Failed to add repository" });
+  }
+};
+
+/**
+ * Remove / Disconnect a repository and its StructurAI indexed data for the authenticated user
+ * DELETE /api/repositories/:id
+ */
+const deleteRepository = async (req, res) => {
+  try {
+    const { repository, status, error } = await findAuthorizedRepository(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
+    const repoId = repository._id;
+    const repoFullName = repository.github?.fullName || "Repository";
+
+    // 1. Delete associated StructurAI data safely (Snapshots, CodeSymbol, CodeRelation, PullRequest)
+    await Promise.all([
+      Repository.deleteOne({ _id: repoId, ownerId: req.user._id }),
+      RepositorySnapshot.deleteMany({ repositoryId: repoId }),
+      CodeSymbol.deleteMany({ repositoryId: repoId }),
+      CodeRelation.deleteMany({ repositoryId: repoId }),
+      PullRequest.deleteMany({ repositoryId: repoId }),
+    ]);
+
+    // Optional cleanups for chat channels
+    try {
+      const PRChannel = require("../../models/PRChannel");
+      const PRMessage = require("../../models/PRMessage");
+      const channels = await PRChannel.find({ repository: repoId });
+      const channelIds = channels.map((c) => c._id);
+      if (channelIds.length > 0) {
+        await PRMessage.deleteMany({ channel: { $in: channelIds } });
+        await PRChannel.deleteMany({ repository: repoId });
+      }
+    } catch (e) {}
+
+    console.log(`[DeleteRepo] Removed repository ${repoFullName} (${repoId}) and associated data for user ${req.user._id}`);
+
+    return res.json({
+      message: `Repository "${repoFullName}" removed successfully from StructurAI.`,
+      repositoryId: repoId.toString(),
+    });
+  } catch (error) {
+    console.error("Error removing repository:", error.message);
+    return res.status(500).json({ error: "Failed to remove repository" });
+  }
+};
+
 module.exports = {
   listUserRepositories,
   connectRepository,
+  addRepositoryByUrl,
+  deleteRepository,
   getRepositoryById,
   getRepositoryStatus,
   triggerRepositoryIndexing,

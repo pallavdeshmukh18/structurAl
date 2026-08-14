@@ -11,6 +11,8 @@ const Review = require("./Review");
 const ReviewFinding = require("./ReviewFinding");
 const Patch = require("./Patch");
 const Meeting = require("./Meeting");
+const Project = require("./Project");
+const ProjectInvitation = require("./ProjectInvitation");
 
 module.exports = {
   User,
@@ -26,4 +28,6 @@ module.exports = {
   ReviewFinding,
   Patch,
   Meeting,
+  Project,
+  ProjectInvitation,
 };

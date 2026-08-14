@@ -14,6 +14,7 @@ const meetingRoutes = require("./src/modules/meeting/meeting.routes");
 const aiRoutes = require("./mayank-ai-engine/src/routes");
 const chatRoutes = require("./src/modules/chat/chat.routes");
 const userRoutes = require("./src/modules/user/user.routes");
+const projectRoutes = require("./src/modules/project/project.routes");
 
 const app = express();
 
@@ -22,7 +23,6 @@ connectDB();
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Allow requests from localhost, GitHub, extensions, or server-to-server (no origin)
             if (
                 !origin ||
                 origin.startsWith("http://localhost:") ||
@@ -56,6 +56,7 @@ app.use("/api/meetings", meetingRoutes);
 app.use("/api/reviews", meetingRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/projects", projectRoutes);
 app.use("/api", aiRoutes);
 
 app.get("/", (req, res) => {

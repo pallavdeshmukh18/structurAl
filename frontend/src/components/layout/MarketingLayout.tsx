@@ -175,10 +175,10 @@ export function MarketingLayout() {
             ) : (
               <>
                 <Link
-                  to="/signin"
+                  to="/signup"
                   className="hidden md:block text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                 >
-                  Sign In
+                  Sign Up
                 </Link>
                 <Link to="/signin">
                   <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-900 hover:text-white rounded-none px-6 uppercase tracking-widest text-xs font-bold shadow-none">

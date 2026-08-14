@@ -14,6 +14,9 @@ import { Repository } from "./pages/Repository";
 import { RepositoryVisualizer } from "./pages/RepositoryVisualizer";
 import { PRReview } from "./pages/PRReview";
 import { CodeHealth } from "./pages/CodeHealth";
+import { ProjectList } from "./pages/ProjectList";
+import { ProjectWorkspace } from "./pages/ProjectWorkspace";
+import { ProjectJoin } from "./pages/ProjectJoin";
 
 import "./App.css";
 
@@ -21,7 +24,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Marketing Routes */}
+        {/* Public Marketing & Join Invitation Routes */}
+        <Route path="/projects/join" element={<ProjectJoin />} />
+
         <Route element={<MarketingLayout />}>
           <Route path="/" element={<Landing />} />
         </Route>
@@ -45,6 +50,11 @@ function App() {
             <Route path="/repository/visualizer" element={<RepositoryVisualizer />} />
             <Route path="/repo" element={<Repository />} />
             
+            {/* Collaborative Projects Routes */}
+            <Route path="/projects" element={<ProjectList />} />
+            <Route path="/projects/:projectId" element={<ProjectWorkspace />} />
+            <Route path="/projects/:projectId/:tab" element={<ProjectWorkspace />} />
+
             {/* PR Review Routes & Aliases */}
             <Route path="/repository/:repoId/pr/:prNumber" element={<PRReview />} />
             <Route path="/repository/:repoId/pull/:prNumber" element={<PRReview />} />

@@ -158,7 +158,7 @@ const handleGitHubCallback = async (req, res) => {
         console.error("Session save error:", err);
         return res.redirect(`${frontendUrl}?error=session_error`);
       }
-      return res.redirect(frontendUrl);
+      return res.redirect(`${frontendUrl}/dashboard`);
     });
   } catch (error) {
     console.error("Error during GitHub OAuth callback:", error);

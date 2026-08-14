@@ -103,8 +103,8 @@ const repositorySchema = new mongoose.Schema(
   }
 );
 
-repositorySchema.index({ "github.id": 1 }, { unique: true });
-repositorySchema.index({ "github.fullName": 1 }, { unique: true });
+repositorySchema.index({ ownerId: 1, "github.id": 1 }, { unique: true });
+repositorySchema.index({ ownerId: 1, "github.fullName": 1 }, { unique: true });
 
 const Repository = mongoose.model("Repository", repositorySchema);
 

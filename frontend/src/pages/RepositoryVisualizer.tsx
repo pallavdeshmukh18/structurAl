@@ -30,7 +30,6 @@ import {
   AlertCircle,
   Code,
   Layers,
-  Network,
   X,
   ArrowLeft,
   ArrowRight,
@@ -40,6 +39,9 @@ import {
   FolderGit2,
   Compass,
   Sparkles,
+  ChevronDown,
+  Check,
+  Play,
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -444,6 +446,51 @@ export function RepositoryVisualizer() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [symbolTypeFilter, setSymbolTypeFilter] = useState<string>("all");
   const [relationTypeFilter, setRelationTypeFilter] = useState<string>("all");
+
+  // Repository Selector state
+  const [userRepos, setUserRepos] = useState<any[]>([]);
+  const [isRepoSelectorOpen, setIsRepoSelectorOpen] = useState<boolean>(false);
+  const [repoSearchQuery, setRepoSearchQuery] = useState<string>("");
+
+  const fetchUserRepos = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/repositories`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserRepos(data.repositories || []);
+      }
+    } catch (err) {
+      console.error("Error fetching user repos for selector:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUserRepos();
+  }, [fetchUserRepos]);
+
+  const filteredUserRepos = useMemo(() => {
+    if (!repoSearchQuery.trim()) return userRepos;
+    const q = repoSearchQuery.toLowerCase().trim();
+    return userRepos.filter((r) => {
+      const name = (r.name || r.github?.name || "").toLowerCase();
+      const owner = (r.owner || r.github?.owner || "").toLowerCase();
+      const fullName = (r.fullName || r.github?.fullName || "").toLowerCase();
+      return name.includes(q) || owner.includes(q) || fullName.includes(q);
+    });
+  }, [userRepos, repoSearchQuery]);
+
+  const handleSwitchRepo = (repo: any) => {
+    setIsRepoSelectorOpen(false);
+    setRepoSearchQuery("");
+    const targetId = repo.indexing?.repositoryId || repo._id || repo.github?.fullName;
+    if (targetId) {
+      navigate(`/repository/${targetId}/visualizer`);
+    }
+  };
 
   const [isTriggeringIndex, setIsTriggeringIndex] = useState<boolean>(false);
 
@@ -959,6 +1006,18 @@ export function RepositoryVisualizer() {
     }
   }, [selectedSymbol]);
 
+  // ESC Key listener to close detail inspector drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeInspector();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeInspector]);
+
   // Selected Area details for Inspector
   const selectedAreaDetails = useMemo(() => {
     if (!selectedClusterName || archAreas.length === 0) return null;
@@ -1054,62 +1113,136 @@ export function RepositoryVisualizer() {
 
   return (
     <div className="space-y-4">
-      {/* 1. Header & Navigation Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center space-x-3">
+      {/* 1. Header & Repository Selector Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative z-30">
+        <div className="flex items-center space-x-3 min-w-0">
           <Link
             to={repoIdParam ? `/repository/${repoIdParam}` : "/dashboard"}
-            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors flex items-center text-xs font-semibold shrink-0"
+            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors flex items-center text-xs font-semibold shrink-0 cursor-pointer"
+            title="Return to Repository Overview"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5" />
             Overview
           </Link>
 
-          <div>
-            {loading ? (
-              <div>
-                <div className="flex items-center gap-2">
-                  <Network className="w-5 h-5 text-emerald-600 animate-pulse" />
-                  <h1 className="text-lg font-bold tracking-tight text-slate-900">Repository Visualizer</h1>
-                </div>
-                <p className="text-slate-500 text-xs mt-0.5 font-medium">Loading repository graph...</p>
+          {/* Interactive Repository Selector Dropdown */}
+          <div className="relative flex-1 min-w-0">
+            <button
+              onClick={() => setIsRepoSelectorOpen(!isRepoSelectorOpen)}
+              className="flex items-center space-x-2.5 px-3.5 py-2 rounded-xl border border-slate-200/90 bg-slate-50/80 hover:bg-slate-100/90 hover:border-indigo-300 text-slate-900 transition-all cursor-pointer group max-w-full text-left"
+            >
+              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                <FolderGit2 className="w-4 h-4" />
               </div>
-            ) : error ? (
-              <div>
-                <div className="flex items-center gap-2">
-                  <Network className="w-5 h-5 text-rose-500" />
-                  <h1 className="text-lg font-bold tracking-tight text-slate-900">Repository Visualizer</h1>
-                </div>
-                <p className="text-rose-500 text-xs mt-0.5 font-semibold">Repository unavailable</p>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Network className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
+              
+              <div className="flex flex-col min-w-0 flex-1 pr-1">
+                <div className="flex items-center space-x-1.5 truncate">
+                  <span className="font-bold text-slate-900 text-sm truncate">
                     {repoDisplayName}
-                  </h1>
-                  <Badge variant="outline" className="capitalize text-xs font-semibold bg-slate-50 text-slate-700">
-                    {repoDetails?.visibility || "public"}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs font-mono text-indigo-700 bg-indigo-50/50 border-indigo-200">
-                    <GitBranch className="w-3 h-3 mr-1 inline-block text-indigo-500" />
-                    {branchName}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                  {repoFullName && <span className="font-mono font-medium text-slate-600">{repoFullName}</span>}
-                  {repoFullName && <span>•</span>}
-                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                    Repository Visualizer
                   </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform shrink-0" />
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono truncate">
+                  {repoFullName || "Select a repository to switch..."}
+                </span>
+              </div>
+
+              <div className="hidden sm:flex items-center space-x-1 shrink-0 ml-1">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize bg-white">
+                  {repoDetails?.visibility || "public"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono text-indigo-600 bg-indigo-50/60 border-indigo-200">
+                  <GitBranch className="w-2.5 h-2.5 mr-0.5 inline-block" />
+                  {branchName}
+                </Badge>
+              </div>
+            </button>
+
+            {/* Repositories Popover Dropdown */}
+            {isRepoSelectorOpen && (
+              <div className="absolute left-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-slate-200/90 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search repositories..."
+                      value={repoSearchQuery}
+                      onChange={(e) => setRepoSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto p-1.5 space-y-1">
+                  {filteredUserRepos.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 text-xs">
+                      No matching repositories found.
+                    </div>
+                  ) : (
+                    filteredUserRepos.map((repo) => {
+                      const isCurrent =
+                        repo._id === repoIdParam ||
+                        repo.indexing?.repositoryId === repoIdParam ||
+                        repo.github?.fullName === repoFullName;
+                      const isIndexed = repo.indexing?.indexed ?? false;
+                      const fullName = repo.github?.fullName || repo.fullName || repo.name;
+                      const defaultBranch = repo.github?.defaultBranch || "main";
+                      const isPrivate = repo.github?.private ?? repo.visibility === "private";
+
+                      return (
+                        <button
+                          key={repo._id || repo.github?.id}
+                          onClick={() => handleSwitchRepo(repo)}
+                          className={`w-full flex items-start justify-between p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
+                            isCurrent
+                              ? "bg-indigo-50/80 border border-indigo-200/80"
+                              : "hover:bg-slate-50 border border-transparent"
+                          }`}
+                        >
+                          <div className="flex items-start space-x-2.5 min-w-0 pr-2">
+                            <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 shrink-0 mt-0.5">
+                              <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center space-x-1.5">
+                                <span className="text-xs font-bold text-slate-900 truncate">
+                                  {repo.name || repo.github?.name}
+                                </span>
+                                {isCurrent && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                              </div>
+                              <span className="text-[11px] text-slate-500 font-mono truncate">{fullName}</span>
+                              <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
+                                <span>{defaultBranch}</span>
+                                <span>•</span>
+                                <span>{isPrivate ? "Private" : "Public"}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isIndexed ? (
+                              <Badge variant="success" className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700 border-emerald-200">
+                                Indexed
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500">
+                                Not Indexed
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Level Controls & Interactive Breadcrumb Bar */}
+        {/* Level Navigation & Controls */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200 text-xs font-mono">
             <button
@@ -1120,40 +1253,21 @@ export function RepositoryVisualizer() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Repository
+              Blueprint Overview
             </button>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 mx-0.5" />
-            <button
-              onClick={goToArchitecture}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewLevel === "level1"
-                  ? "bg-white text-emerald-700 shadow-sm font-bold"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Architecture
-            </button>
-            {selectedClusterName && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 mx-0.5" />
-                <button
-                  onClick={() => goToModule(selectedClusterName)}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-                    viewLevel === "level2"
-                      ? "bg-white text-emerald-700 shadow-sm font-bold"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {selectedClusterName}
-                </button>
-              </>
-            )}
-            {selectedFile && (
+
+            {viewLevel === "level2" && selectedClusterName && (
               <>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 mx-0.5" />
                 <span className="px-3 py-1.5 bg-white text-indigo-700 font-bold rounded-lg shadow-sm">
-                  {selectedFile.split("/").pop()}
+                  {selectedClusterName}
                 </span>
+                <button
+                  onClick={goToArchitecture}
+                  className="ml-2 px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-sans font-semibold transition-colors cursor-pointer"
+                >
+                  ← Back to Blueprint
+                </button>
               </>
             )}
           </div>
@@ -1163,12 +1277,29 @@ export function RepositoryVisualizer() {
             size="sm"
             onClick={() => repoIdParam && fetchGraphAndRepo(repoIdParam)}
             disabled={loading}
-            className="rounded-xl"
+            className="rounded-xl flex items-center gap-1.5 text-xs"
+            title="Refresh Graph & Snapshot Data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
+
+      {/* Context Subheader Bar */}
+      {graphData && (
+        <div className="px-4 py-2 rounded-xl bg-slate-100/70 border border-slate-200/60 text-xs text-slate-600 flex items-center justify-between font-mono">
+          <div className="flex items-center space-x-2">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span>
+              Architecture Blueprint · <strong>{graphData.stats?.nodeCount ?? graphData.nodes?.length ?? 0}</strong> symbols · <strong>{graphData.stats?.edgeCount ?? graphData.edges?.length ?? 0}</strong> relations · <strong>{graphData.stats?.fileCount ?? 0}</strong> files
+            </span>
+          </div>
+          <div className="hidden sm:block text-[11px] text-slate-400">
+            Press <kbd className="px-1.5 py-0.5 bg-white rounded border border-slate-200 text-slate-600 font-bold">ESC</kbd> to close inspector
+          </div>
+        </div>
+      )}
 
       {/* 2. Top Architecture Summary Bar */}
       {graphData && (
@@ -1398,21 +1529,25 @@ export function RepositoryVisualizer() {
                   {errorType === "no_snapshot" ? <Sparkles className="w-8 h-8 text-indigo-600 animate-pulse" /> : <AlertCircle className="w-8 h-8" />}
                 </div>
                 <div className="max-w-md">
-                  <h3 className="text-base font-semibold text-slate-900 mb-1">
+                  <h3 className="text-base font-extrabold text-slate-900 mb-1">
                     {errorType === "no_snapshot"
-                      ? "AST Indexing Required"
+                      ? "This repository hasn't been indexed yet."
                       : errorType === "not_found" && !repoIdParam
                       ? "No Repositories Found"
                       : "Unable to Load Visualizer"}
                   </h3>
-                  <p className="text-xs text-slate-500">{error}</p>
+                  <p className="text-xs text-slate-500">
+                    {errorType === "no_snapshot"
+                      ? "Index the repository to generate its architecture map and symbol dependency graph."
+                      : error}
+                  </p>
                 </div>
                 {errorType === "no_snapshot" ? (
                   <div className="flex flex-col items-center space-y-3">
                     <button
                       onClick={handleTriggerIndex}
                       disabled={isTriggeringIndex}
-                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-200 transition-all disabled:opacity-50"
+                      className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                     >
                       {isTriggeringIndex ? (
                         <>
@@ -1421,14 +1556,14 @@ export function RepositoryVisualizer() {
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>⚡ Index Repository in structur.aI</span>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Index Repository</span>
                         </>
                       )}
                     </button>
                     {isTriggeringIndex && (
                       <p className="text-[11px] text-slate-400 font-mono animate-pulse">
-                        Scanning files, building symbols & dependency graph...
+                        Scanning repository files, extracting AST symbols & building dependency graph...
                       </p>
                     )}
                   </div>
