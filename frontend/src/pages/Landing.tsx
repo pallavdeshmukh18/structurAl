@@ -99,53 +99,172 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Features Section ("Choose your Platform") */}
-      <section id="features" className="w-full py-24 relative z-10 border-t border-slate-200/60">
-        <div className="max-w-[1400px] mx-auto px-6">
+      {/* Features Section ("Choose your Platform" - Interactive Live Code Mesh) */}
+      <section id="features" className="w-full py-24 relative z-10 border-t border-slate-200/60 overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[700px] bg-gradient-to-tr from-indigo-500/10 via-slate-900/5 to-rose-500/10 blur-[140px] rounded-full pointer-events-none"></div>
+
+        <div className="max-w-[1400px] mx-auto px-6 relative z-10">
           {/* Header split */}
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-slate-200 pb-10">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-10 border-b border-slate-200 pb-8">
             <div className="flex items-center gap-6">
-              <div className="hidden md:block w-1 h-20 bg-indigo-600 rounded-full"></div>
-              <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 max-w-lg leading-tight font-serif">
-                Choose your<br/>Platform
-              </h2>
+              <div className="hidden md:block w-1.5 h-20 bg-slate-900 rounded-full"></div>
+              <div>
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-tight font-serif">
+                  Choose your<br/>Platform
+                </h2>
+                <p className="text-slate-500 font-sans text-sm mt-2 font-medium">Live executable reasoning mesh — zero static icons, pure code & telemetry stream</p>
+              </div>
             </div>
             <div className="flex items-center gap-4 mt-8 md:mt-0">
               <div className="w-12 h-[1px] bg-indigo-600"></div>
-              <span className="text-indigo-600 font-mono font-bold tracking-widest text-xs uppercase">01 / Capabilities</span>
+              <span className="text-indigo-600 font-mono font-bold tracking-widest text-xs uppercase">01 / Terminal Topology Mesh</span>
             </div>
           </div>
 
-          {/* Cards Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { id: "01", title: "Monitoring", icon: Activity, desc: "Visualize execution traces and instantly pinpoint failing nodes in your microservices with real-time accuracy.", glassBg: "bg-indigo-500/15 border-indigo-400/40 text-indigo-600 shadow-indigo-500/10" },
-              { id: "02", title: "AI Root-Cause", icon: ShieldAlert, desc: "Automatically identify the underlying bug causing incidents before your users notice. Reduce MTTD significantly.", glassBg: "bg-rose-500/15 border-rose-400/40 text-rose-600 shadow-rose-500/10" },
-              { id: "03", title: "PR Reviews", icon: GitPullRequest, desc: "Automated, contextual PR reviews that catch regressions, anti-patterns, and bad practices effortlessly.", glassBg: "bg-amber-500/15 border-amber-400/40 text-amber-600 shadow-amber-500/10" },
-              { id: "04", title: "Code Health", icon: Code2, desc: "Keep technical debt in check with continuous scoring, deep analysis, and visual dependency graphs.", glassBg: "bg-violet-500/15 border-violet-400/40 text-violet-600 shadow-violet-500/10" }
-            ].map((feature, i) => (
-              <div key={i} className="bg-white/40 backdrop-blur-md border border-white/70 p-8 flex flex-col h-[480px] hover:bg-white/55 hover:border-white/90 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1.5 transition-all duration-300 rounded-3xl group relative overflow-hidden shadow-lg shadow-slate-900/5">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent group-hover:via-indigo-500 transition-colors duration-500"></div>
-                <div className="text-slate-400 font-mono text-2xl font-bold mb-8 flex items-end">
-                  <span className="text-slate-900">{feature.id}</span>
-                  <span className="text-xs ml-1 mb-1 opacity-50">/04</span>
+          {/* Slanted Diamond / Square Canvas Layout */}
+          <div className="relative min-h-[740px] w-full bg-slate-950 border border-slate-800 rounded-3xl p-6 md:p-12 shadow-2xl shadow-slate-950/50 overflow-hidden flex flex-col justify-between text-slate-100">
+            {/* Subtle Matrix/Terminal Background Grid */}
+            <div className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none"></div>
+
+            {/* Desktop Full K4 Live Code Mesh Graph (Slanted Diamond + 2 Diagonals) */}
+            <div className="relative w-full min-h-[600px] hidden lg:flex items-center justify-center">
+              
+              {/* SVG Edges Layer for K4 Complete Graph */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 1200 600" fill="none">
+                <defs>
+                  <linearGradient id="code-edge-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#818cf8" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="#fb7185" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#c084fc" stopOpacity="0.8" />
+                  </linearGradient>
+                  <linearGradient id="code-edge-diag1" x1="0%" y1="50%" x2="100%" y2="50%">
+                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#fbbf24" stopOpacity="0.8" />
+                  </linearGradient>
+                  <linearGradient id="code-edge-diag2" x1="50%" y1="0%" x2="50%" y2="100%">
+                    <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8" />
+                  </linearGradient>
+                  <filter id="glow-code" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="6" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                </defs>
+
+                {/* Outer Diamond Edges */}
+                <line x1="600" y1="70" x2="210" y2="300" stroke="url(#code-edge-outer)" strokeWidth="2.5" strokeDasharray="5 5" className="animate-[dash_15s_linear_infinite]" filter="url(#glow-code)" />
+                <line x1="600" y1="70" x2="990" y2="300" stroke="url(#code-edge-outer)" strokeWidth="2.5" strokeDasharray="5 5" className="animate-[dash_15s_linear_infinite]" filter="url(#glow-code)" />
+                <line x1="210" y1="300" x2="600" y2="530" stroke="url(#code-edge-outer)" strokeWidth="2.5" strokeDasharray="5 5" className="animate-[dash_18s_linear_infinite]" filter="url(#glow-code)" />
+                <line x1="990" y1="300" x2="600" y2="530" stroke="url(#code-edge-outer)" strokeWidth="2.5" strokeDasharray="5 5" className="animate-[dash_18s_linear_infinite]" filter="url(#glow-code)" />
+
+                {/* Diagonals */}
+                <line x1="210" y1="300" x2="990" y2="300" stroke="url(#code-edge-diag1)" strokeWidth="3" strokeDasharray="8 8" className="animate-[dash_12s_linear_infinite]" filter="url(#glow-code)" />
+                <line x1="600" y1="70" x2="600" y2="530" stroke="url(#code-edge-diag2)" strokeWidth="3" strokeDasharray="8 8" className="animate-[dash_14s_linear_infinite]" filter="url(#glow-code)" />
+
+                {/* Central AI Reasoning Core Intersection */}
+                <circle cx="600" cy="300" r="10" fill="#0f172a" stroke="#38bdf8" strokeWidth="3" />
+                <circle cx="600" cy="300" r="22" fill="none" stroke="#f43f5e" strokeWidth="1.5" className="animate-ping opacity-60" />
+                <text x="600" y="304" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">AI</text>
+              </svg>
+
+              {/* VERTEX 01: TOP (Monitoring Terminal) */}
+              <div className="absolute top-[10px] left-1/2 -translate-x-1/2 z-10 w-[340px] group bg-slate-900/90 border border-slate-700/80 hover:border-indigo-500 p-4 rounded-xl shadow-2xl backdrop-blur-xl transition-all duration-300 font-mono">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3 text-[11px]">
+                  <span className="text-indigo-400 font-bold flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                    01 // MONITORING_TRACE
+                  </span>
+                  <span className="text-slate-500">200 OK</span>
                 </div>
-                
-                <div className="flex-grow flex flex-col items-center justify-center text-center relative z-10">
-                  <div className={`w-24 h-24 ${feature.glassBg} border backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 shadow-xl transform group-hover:scale-110 group-hover:bg-white/40 transition-all duration-500`}>
-                    <feature.icon className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3 tracking-wide">{feature.title}</h3>
-                  <p className="text-slate-700 font-medium text-sm leading-relaxed max-w-[220px] mx-auto">{feature.desc}</p>
-                </div>
-                
-                <div className="mt-6">
-                  <Button variant="outline" className="w-full rounded-xl border-white/60 text-slate-900 bg-white/25 backdrop-blur-sm hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all tracking-wider text-xs font-bold h-11 shadow-sm">
-                    Explore Capability
-                  </Button>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-[11px] text-slate-300 font-mono space-y-1">
+                  <div className="text-slate-500">// Real-time span execution</div>
+                  <div><span className="text-emerald-400">GET</span> /api/v1/orders <span className="text-slate-400">14ms</span></div>
+                  <div><span className="text-indigo-400">TRACE_ID</span> <span className="text-slate-400">0x8f3a92...</span></div>
                 </div>
               </div>
-            ))}
+
+              {/* VERTEX 02: LEFT (AI Root-Cause Terminal) */}
+              <div className="absolute top-[210px] left-[30px] z-10 w-[340px] group bg-slate-900/90 border border-slate-700/80 hover:border-rose-500 p-4 rounded-xl shadow-2xl backdrop-blur-xl transition-all duration-300 font-mono">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3 text-[11px]">
+                  <span className="text-rose-400 font-bold flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+                    02 // ROOT_CAUSE_AI
+                  </span>
+                  <span className="text-rose-500 font-bold">MUTATION BUG</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-[11px] text-slate-300 font-mono space-y-1">
+                  <div className="text-slate-500">// Inference result</div>
+                  <div className="text-rose-300">NullPointer at line 142</div>
+                  <div className="text-slate-400">Confidence: <span className="text-emerald-400 font-bold">98.4%</span></div>
+                </div>
+              </div>
+
+              {/* VERTEX 04: RIGHT (PR Review Code Auditor) */}
+              <div className="absolute top-[210px] right-[30px] z-10 w-[340px] group bg-slate-900/90 border border-slate-700/80 hover:border-amber-500 p-4 rounded-xl shadow-2xl backdrop-blur-xl transition-all duration-300 font-mono">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3 text-[11px]">
+                  <span className="text-amber-400 font-bold flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    04 // CODE_AUDITOR
+                  </span>
+                  <span className="text-amber-400">PR #142</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-[11px] text-slate-300 font-mono space-y-1">
+                  <div className="text-slate-500">// Automated Diff Inspection</div>
+                  <div className="text-rose-400">- await db.query(rawSQL);</div>
+                  <div className="text-emerald-400">+ await db.safeQuery(schema);</div>
+                </div>
+              </div>
+
+              {/* VERTEX 03: BOTTOM (Code Health Metrics) */}
+              <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 z-10 w-[340px] group bg-slate-900/90 border border-slate-700/80 hover:border-violet-500 p-4 rounded-xl shadow-2xl backdrop-blur-xl transition-all duration-300 font-mono">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3 text-[11px]">
+                  <span className="text-violet-400 font-bold flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></span>
+                    03 // CODE_HEALTH
+                  </span>
+                  <span className="text-emerald-400 font-bold">SCORE: 94/100</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-[11px] text-slate-300 font-mono space-y-1">
+                  <div className="text-slate-500">// Continuous Metrics</div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Tech Debt Ratio:</span>
+                    <span className="text-indigo-400">1.2%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Cyclomatic Complexity:</span>
+                    <span className="text-emerald-400">Low</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Mobile Responsive Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden relative z-10 my-4 font-mono">
+              {[
+                { title: "01 // MONITORING", code: "GET /api/v1/orders - 14ms", border: "border-indigo-500/50" },
+                { title: "02 // ROOT_CAUSE", code: "NullPointer at line 142 (98% Conf)", border: "border-rose-500/50" },
+                { title: "04 // CODE_AUDITOR", code: "PR #142 Safe Query Validation", border: "border-amber-500/50" },
+                { title: "03 // CODE_HEALTH", code: "Health Score: 94/100 (Debt 1.2%)", border: "border-violet-500/50" }
+              ].map((item, idx) => (
+                <div key={idx} className={`bg-slate-900 p-4 rounded-xl border ${item.border} text-xs space-y-2`}>
+                  <div className="text-indigo-400 font-bold">{item.title}</div>
+                  <div className="bg-slate-950 p-2 rounded text-slate-300">{item.code}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Live Terminal Console Footer */}
+            <div className="relative z-10 border-t border-slate-800 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-400">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>$ structurai engine --live-stream --graph=K4</span>
+              </div>
+              <div className="text-slate-500">
+                [PARALLEL_EXECUTION: ACTIVE]
+              </div>
+            </div>
           </div>
         </div>
       </section>
