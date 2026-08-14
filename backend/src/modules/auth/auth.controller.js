@@ -24,7 +24,7 @@ const redirectToGitHub = (req, res) => {
  */
 const handleGitHubCallback = async (req, res) => {
   const { code, error: oauthError } = req.query;
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
   if (oauthError || !code) {
     console.error("GitHub OAuth error or missing code:", oauthError);
