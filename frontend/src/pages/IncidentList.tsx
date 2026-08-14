@@ -233,6 +233,16 @@ export function IncidentList() {
         </div>
 
         <div className="flex items-center space-x-3">
+          <a
+            href="/#slack-integration"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors shadow-sm"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Slack Bot Active</span>
+          </a>
+
           <button
             onClick={handlePingHealth}
             disabled={isPinging}

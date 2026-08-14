@@ -17,6 +17,7 @@ import { CodeHealth } from "./pages/CodeHealth";
 import { ProjectList } from "./pages/ProjectList";
 import { ProjectWorkspace } from "./pages/ProjectWorkspace";
 import { ProjectJoin } from "./pages/ProjectJoin";
+import { SlackGuide } from "./pages/SlackGuide";
 
 import "./App.css";
 
@@ -29,6 +30,9 @@ function App() {
 
         <Route element={<MarketingLayout />}>
           <Route path="/" element={<Landing />} />
+          <Route path="/slack" element={<SlackGuide />} />
+          <Route path="/slack/guide" element={<SlackGuide />} />
+          <Route path="/slack/README.md" element={<SlackGuide />} />
         </Route>
 
         {/* Guest-only Authentication Routes (Redirects authenticated users to /dashboard) */}
