@@ -6,10 +6,28 @@
 (function () {
   "use strict";
 
-  const BACKEND_API_BASE = "http://localhost:5001";
-  const FRONTEND_APP_BASE = "http://localhost:5173";
+  const DEFAULT_BACKEND_API_BASE = "http://localhost:5001";
+  const DEFAULT_FRONTEND_APP_BASE = "http://localhost:5173";
   const BUTTON_ID = "structurai-index-btn";
   const TOAST_ID = "structurai-toast";
+
+  async function getAppConfig() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== "undefined" && chrome && chrome.storage && chrome.storage.sync) {
+        chrome.storage.sync.get(["backendUrl", "frontendUrl"], (items) => {
+          resolve({
+            backendUrl: (items && items.backendUrl && items.backendUrl.trim()) || DEFAULT_BACKEND_API_BASE,
+            frontendUrl: (items && items.frontendUrl && items.frontendUrl.trim()) || DEFAULT_FRONTEND_APP_BASE,
+          });
+        });
+      } else {
+        resolve({
+          backendUrl: DEFAULT_BACKEND_API_BASE,
+          frontendUrl: DEFAULT_FRONTEND_APP_BASE,
+        });
+      }
+    });
+  }
 
   const IGNORED_PATHS = new Set([
     "settings", "pulls", "issues", "discussions", "actions", "projects",
@@ -74,6 +92,8 @@
       <span>⏳ Indexing AST...</span>
     `;
 
+    const { backendUrl, frontendUrl } = await getAppConfig();
+
     const payload = {
       name: repoDetails.repo,
       fullName: repoDetails.fullName,
@@ -85,7 +105,7 @@
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch(`${BACKEND_API_BASE}/api/repositories`, {
+      const response = await fetch(`${backendUrl}/api/repositories`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -117,8 +137,8 @@
       // 3. Redirect to React Flow Visualizer Canvas after 1s
       setTimeout(() => {
         const targetUrl = repositoryId
-          ? `${FRONTEND_APP_BASE}/repository/${repositoryId}`
-          : `${FRONTEND_APP_BASE}/dashboard`;
+          ? `${frontendUrl}/repository/${repositoryId}`
+          : `${frontendUrl}/dashboard`;
         window.open(targetUrl, "_blank");
 
         // Reset button state
@@ -141,7 +161,7 @@
           <span class="structurai-btn-icon">❌</span>
           <span>Backend Unreachable</span>
         `;
-        showToast("❌ Could not connect to structur.aI backend on localhost:5001", true);
+        showToast(`❌ Could not connect to structur.aI backend at ${backendUrl}`, true);
       } else {
         btn.innerHTML = `
           <span class="structurai-btn-icon">❌</span>

@@ -14,8 +14,19 @@ const generateRtcToken = async (req, res) => {
       return res.status(400).json({ error: "Channel name is required" });
     }
 
-    const appId = process.env.AGORA_APP_ID || "demo_app_id_structurai";
-    const appCertificate = process.env.AGORA_APP_CERTIFICATE || "";
+    const isProduction = process.env.NODE_ENV === "production";
+    const appId = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+    if (isProduction && (!appId || !appCertificate || appId === "demo_app_id_structurai")) {
+      console.error("[AGORA PROD ERROR] Missing valid AGORA_APP_ID or AGORA_APP_CERTIFICATE in production");
+      return res.status(500).json({
+        error: "Agora RTC production credentials (AGORA_APP_ID, AGORA_APP_CERTIFICATE) are required.",
+      });
+    }
+
+    const effectiveAppId = appId || "demo_app_id_structurai";
+    const effectiveCert = appCertificate || "";
 
     // Parse numeric UID or default to 0 for auto-allocation
     const numericUid = parseInt(uid, 10) || 0;
@@ -26,23 +37,23 @@ const generateRtcToken = async (req, res) => {
 
     let token = "";
 
-    if (appId && appCertificate) {
+    if (effectiveAppId && effectiveCert && effectiveAppId !== "demo_app_id_structurai") {
       token = RtcTokenBuilder.buildTokenWithUid(
-        appId,
-        appCertificate,
+        effectiveAppId,
+        effectiveCert,
         channelName,
         numericUid,
         rtcRole,
         privilegeExpiredTs
       );
     } else {
-      // Development fallback token if no Agora credentials configured yet
+      // Development fallback token if no Agora credentials configured yet in dev mode
       token = `DEV_MOCK_TOKEN_${channelName}_${Date.now()}`;
     }
 
     return res.json({
       token,
-      appId,
+      appId: effectiveAppId,
       channelName,
       uid: numericUid,
       expiresAt: privilegeExpiredTs,

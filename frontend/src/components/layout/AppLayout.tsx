@@ -14,13 +14,16 @@ import {
   Download,
   ArrowUpRight,
   Users,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { SlackBotModal } from "../slack/SlackBotModal";
 
 export function AppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [isSlackModalOpen, setIsSlackModalOpen] = useState(false);
 
   // Extract repo ID from location.pathname if currently inside /repository/:id or /repository/:id/visualizer
   const repoIdMatch = location.pathname.match(/\/repository\/([^/]+)/);
@@ -137,8 +140,40 @@ export function AppLayout() {
             })}
           </div>
 
-          {/* Chrome Extension Download CTA */}
-          <div className="pt-3 mt-3 border-t border-slate-100 shrink-0">
+          {/* Slack Bot Integration & Chrome Extension CTAs */}
+          <div className="pt-3 mt-3 border-t border-slate-100 shrink-0 space-y-2">
+            {collapsed ? (
+              <button
+                onClick={() => setIsSlackModalOpen(true)}
+                title="Try our Slack Bot"
+                className="w-full flex items-center justify-center p-2.5 rounded-lg text-purple-700 bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/60 transition-colors cursor-pointer"
+              >
+                <MessageSquare className="w-5 h-5 text-purple-600 shrink-0" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsSlackModalOpen(true)}
+                className="w-full text-left group block p-3 rounded-xl bg-purple-50/60 hover:bg-purple-50 border border-purple-200/70 hover:border-purple-300 transition-all shadow-2xs cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <div className="p-1.5 rounded-lg bg-purple-100/80 text-purple-700 shrink-0">
+                      <MessageSquare className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-semibold text-purple-950 truncate flex items-center gap-1">
+                        Try our Slack Bot
+                      </span>
+                      <span className="text-[10px] text-purple-700/80 truncate">
+                        Bring StructurAI to Slack
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-purple-600 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </div>
+              </button>
+            )}
+
             {collapsed ? (
               <a
                 href="/extension.zip"
@@ -219,6 +254,9 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Slack Bot Modal */}
+      <SlackBotModal isOpen={isSlackModalOpen} onClose={() => setIsSlackModalOpen(false)} />
     </div>
   );
 }

@@ -11,6 +11,8 @@ const {
   createProjectInvitation,
   verifyProjectInvitation,
   acceptProjectInvitation,
+  updateProjectVisibility,
+  deleteProject,
 } = require("./project.controller");
 const { isAuthenticated } = require("../../middleware/auth");
 
@@ -22,6 +24,8 @@ router.get("/invitations/verify", verifyProjectInvitation);
 router.post("/invitations/accept", isAuthenticated, acceptProjectInvitation);
 
 router.get("/:id", isAuthenticated, getProjectById);
+router.patch("/:id/visibility", isAuthenticated, updateProjectVisibility);
+router.delete("/:id", isAuthenticated, deleteProject);
 router.post("/:id/repository", isAuthenticated, connectProjectRepository);
 router.post("/:id/members", isAuthenticated, addProjectMember);
 router.post("/:id/invitations", isAuthenticated, createProjectInvitation);

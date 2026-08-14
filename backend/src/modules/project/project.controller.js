@@ -60,7 +60,11 @@ const listUserProjects = async (req, res) => {
     const userId = req.user._id;
 
     const projects = await Project.find({
-      $or: [{ owner: userId }, { "members.user": userId }],
+      $or: [
+        { owner: userId },
+        { "members.user": userId },
+        { visibility: "public" },
+      ],
     })
       .populate("owner", "name email avatarUrl providers")
       .populate("members.user", "name email avatarUrl providers")
@@ -370,14 +374,25 @@ const getProjectAgoraToken = async (req, res) => {
     }
 
     const channelName = project.agoraChannelName || `project-${project._id}`;
-    const appId = process.env.AGORA_APP_ID || "demo_app_id_structurai";
-    const appCertificate = process.env.AGORA_APP_CERTIFICATE || "";
+    const isProduction = process.env.NODE_ENV === "production";
+    const appId = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+    if (isProduction && (!appId || !appCertificate || appId === "demo_app_id_structurai")) {
+      console.error("[ProjectController PROD ERROR] Missing valid AGORA_APP_ID or AGORA_APP_CERTIFICATE in production");
+      return res.status(500).json({
+        error: "Agora RTC production credentials (AGORA_APP_ID, AGORA_APP_CERTIFICATE) are required.",
+      });
+    }
+
+    const effectiveAppId = appId || "demo_app_id_structurai";
+    const effectiveCert = appCertificate || "";
 
     let token = "";
-    if (appId && appCertificate) {
+    if (effectiveAppId && effectiveCert && effectiveAppId !== "demo_app_id_structurai") {
       token = RtcTokenBuilder.buildTokenWithUid(
-        appId,
-        appCertificate,
+        effectiveAppId,
+        effectiveCert,
         channelName,
         0,
         RtcRole.PUBLISHER,
@@ -389,7 +404,7 @@ const getProjectAgoraToken = async (req, res) => {
 
     return res.json({
       token,
-      appId,
+      appId: effectiveAppId,
       channelName,
       projectId: project._id.toString(),
     });
@@ -630,6 +645,86 @@ const acceptProjectInvitation = async (req, res) => {
   }
 };
 
+/**
+ * Update project visibility (Private / Public)
+ * PATCH /api/projects/:id/visibility
+ */
+const updateProjectVisibility = async (req, res) => {
+  try {
+    const { project, isOwner, status, error } = await findAuthorizedProject(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
+    if (!isOwner) {
+      return res.status(403).json({ error: "Only project owner can change project visibility" });
+    }
+
+    const { visibility } = req.body || {};
+    if (visibility !== "public" && visibility !== "private") {
+      return res.status(400).json({ error: "Visibility must be 'public' or 'private'" });
+    }
+
+    project.visibility = visibility;
+    project.activities.push({
+      user: req.user._id,
+      userName: req.user.name || req.user.email,
+      action: "Changed visibility",
+      details: `Changed project visibility to ${visibility}`,
+      createdAt: new Date(),
+    });
+    project.lastActivityAt = new Date();
+
+    await project.save();
+
+    const updated = await Project.findById(project._id)
+      .populate("owner", "name email avatarUrl providers")
+      .populate("members.user", "name email avatarUrl providers")
+      .populate("repository");
+
+    return res.json({
+      message: `Project visibility updated to ${visibility}`,
+      project: updated,
+    });
+  } catch (error) {
+    console.error("[ProjectController] Error updating project visibility:", error.message);
+    return res.status(500).json({ error: "Failed to update project visibility" });
+  }
+};
+
+/**
+ * Delete Collaborative Project
+ * DELETE /api/projects/:id
+ */
+const deleteProject = async (req, res) => {
+  try {
+    const { project, isOwner, status, error } = await findAuthorizedProject(req, req.params.id);
+    if (status !== 200) {
+      return res.status(status).json({ error });
+    }
+
+    if (!isOwner) {
+      return res.status(403).json({ error: "Only project owner can delete this project" });
+    }
+
+    // Clean up project-owned invitations
+    await ProjectInvitation.deleteMany({ project: project._id });
+
+    // Delete the project document
+    await Project.deleteOne({ _id: project._id });
+
+    // NOTE: Connected Repository document & GitHub repo are intentionally left untouched.
+
+    return res.json({
+      success: true,
+      message: `Project "${project.name}" deleted successfully`,
+    });
+  } catch (error) {
+    console.error("[ProjectController] Error deleting project:", error.message);
+    return res.status(500).json({ error: "Failed to delete project" });
+  }
+};
+
 module.exports = {
   listUserProjects,
   createProject,
@@ -641,4 +736,6 @@ module.exports = {
   createProjectInvitation,
   verifyProjectInvitation,
   acceptProjectInvitation,
+  updateProjectVisibility,
+  deleteProject,
 };

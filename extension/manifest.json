@@ -8,7 +8,8 @@
   ],
   "host_permissions": [
     "https://github.com/*",
-    "http://localhost:5001/*"
+    "https://*/*",
+    "http://*/*"
   ],
   "action": {
     "default_title": "structur.aI Code Debugger"
