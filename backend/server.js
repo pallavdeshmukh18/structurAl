@@ -17,6 +17,8 @@ const userRoutes = require("./src/modules/user/user.routes");
 const projectRoutes = require("./src/modules/project/project.routes");
 const slackRoutes = require("./src/modules/slack/slack.routes");
 
+const app = express();
+
 const isProduction =
     process.env.NODE_ENV === "production" ||
     process.env.RENDER === "true" ||
