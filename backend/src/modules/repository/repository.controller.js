@@ -771,7 +771,6 @@ const getRepositoryFileContent = async (req, res) => {
         }
       }
     }
->>>>>>> origin/main
 
     return res.json(fileData);
   } catch (error) {
