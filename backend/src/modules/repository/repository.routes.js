@@ -38,6 +38,22 @@ router.get("/:owner/:repo/graph", optionalAuth, (req, res, next) => {
   req.params.id = `${req.params.owner}/${req.params.repo}`;
   return getRepositoryGraph(req, res, next);
 });
+router.get("/:owner/:repo/tree", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryTree(req, res, next);
+});
+router.get("/:owner/:repo/contents", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryFileContent(req, res, next);
+});
+router.get("/:owner/:repo/symbols", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositorySymbols(req, res, next);
+});
+router.get("/:owner/:repo/relations", optionalAuth, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryRelations(req, res, next);
+});
 router.get("/:owner/:repo/status", optionalAuth, (req, res, next) => {
   req.params.id = `${req.params.owner}/${req.params.repo}`;
   return getRepositoryStatus(req, res, next);
