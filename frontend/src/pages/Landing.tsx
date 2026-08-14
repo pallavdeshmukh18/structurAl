@@ -387,11 +387,11 @@ export function Landing() {
               </div>
 
               <div className="pt-4 flex flex-col sm:flex-row gap-4">
-                <a href="/slack/README.md" target="_blank" rel="noopener noreferrer">
+                <Link to="/slack/guide">
                   <Button className="h-12 px-6 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold font-mono text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" /> Setup Slack Bot Guide
                   </Button>
-                </a>
+                </Link>
               </div>
             </div>
 
