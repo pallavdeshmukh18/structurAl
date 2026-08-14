@@ -1,10 +1,6 @@
 import { Link, Navigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
-<<<<<<< HEAD
-import { ArrowRight, Server, Cpu, Code, Download } from "lucide-react";
-=======
 import { ArrowRight, Activity, GitPullRequest, Code2, ShieldAlert, Server, Cpu, Code, Download, MessageSquare, Bell, CheckCircle2 } from "lucide-react";
->>>>>>> 6286dc2 (Integrate Slack Bot navigation and live incident indicators throughout frontend)
 import { ReactFlow, Background, MarkerType } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useAuth } from "../context/AuthContext";
