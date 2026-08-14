@@ -1,7 +1,11 @@
 const session = require("express-session");
 const { MongoStore } = require("connect-mongo");
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  process.env.RENDER === "true" ||
+  Boolean(process.env.FRONTEND_URL && process.env.FRONTEND_URL.startsWith("https://"));
+
 const sessionSecret = process.env.SESSION_SECRET;
 const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/structurAl";
 

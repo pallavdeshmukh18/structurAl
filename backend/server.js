@@ -17,18 +17,25 @@ const userRoutes = require("./src/modules/user/user.routes");
 const projectRoutes = require("./src/modules/project/project.routes");
 const slackRoutes = require("./src/modules/slack/slack.routes");
 
-const app = express();
+const isProduction =
+    process.env.NODE_ENV === "production" ||
+    process.env.RENDER === "true" ||
+    Boolean(process.env.FRONTEND_URL && process.env.FRONTEND_URL.startsWith("https://"));
 
 // Enable trust proxy for reverse proxies (Render, Vercel, Nginx, AWS ALB) to properly handle secure cookies
-if (process.env.NODE_ENV === "production" || process.env.TRUST_PROXY === "true") {
+if (isProduction || process.env.TRUST_PROXY === "true") {
     app.set("trust proxy", 1);
 }
 
 connectDB();
 
-const isProduction = process.env.NODE_ENV === "production";
 const configuredFrontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || configuredFrontendUrl)
+const defaultProdOrigin = "https://structur-al.vercel.app";
+const rawOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS
+    : `${configuredFrontendUrl},${defaultProdOrigin}`;
+
+const allowedOrigins = rawOrigins
     .split(",")
     .map((url) => url.trim().replace(/\/$/, ""))
     .filter(Boolean);
