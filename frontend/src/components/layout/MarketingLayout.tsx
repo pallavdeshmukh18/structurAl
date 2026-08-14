@@ -57,7 +57,10 @@ export function MarketingLayout() {
             <a href="#features" className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-wider">
               Capabilities
             </a>
-            <a href="#how-it-works" className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-wider">
+            <a href="#slack-integration" className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-wider">
+              Slack Bot
+            </a>
+            <a href="#extension" className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-wider">
               Extension
             </a>
           </nav>

@@ -1,6 +1,10 @@
 import { Link, Navigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
+<<<<<<< HEAD
 import { ArrowRight, Server, Cpu, Code, Download } from "lucide-react";
+=======
+import { ArrowRight, Activity, GitPullRequest, Code2, ShieldAlert, Server, Cpu, Code, Download, MessageSquare, Bell, CheckCircle2 } from "lucide-react";
+>>>>>>> 6286dc2 (Integrate Slack Bot navigation and live incident indicators throughout frontend)
 import { ReactFlow, Background, MarkerType } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useAuth } from "../context/AuthContext";
@@ -274,8 +278,138 @@ export function Landing() {
         </div>
       </section>
 
+      {/* Slack Bot Integration Showcase Section */}
+      <section id="slack-integration" className="w-full py-24 relative z-10 border-t border-slate-200/60 overflow-hidden">
+        {/* Soft background ambient glow */}
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[600px] h-[450px] bg-emerald-500/10 blur-[130px] rounded-full pointer-events-none"></div>
+
+        <div className="max-w-[1400px] mx-auto px-6 relative z-10">
+          {/* Header split */}
+          <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-slate-200 pb-10">
+            <div className="flex items-center gap-6">
+              <div className="hidden md:block w-1.5 h-20 bg-emerald-600 rounded-full"></div>
+              <div>
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-tight font-serif">
+                  Slack Bot<br/>Notifications
+                </h2>
+                <p className="text-slate-500 font-sans text-sm mt-2 font-medium">Instant workspace alerts whenever bugs, pings, or PR regressions occur</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 mt-8 md:mt-0">
+              <div className="w-12 h-[1px] bg-emerald-600"></div>
+              <span className="text-emerald-600 font-mono font-bold tracking-widest text-xs uppercase">02 / Slack Integration</span>
+            </div>
+          </div>
+
+          {/* Feature Showcase Grid */}
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 md:p-12 shadow-2xl flex flex-col lg:flex-row gap-12 items-center text-slate-100 relative overflow-hidden">
+            
+            {/* Left: Interactive Slack Message UI Mockup */}
+            <div className="w-full lg:w-1/2">
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl font-sans relative">
+                {/* Slack Header */}
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-slate-950 font-mono text-sm">#</div>
+                    <div>
+                      <h4 className="font-bold text-white text-sm">#engineering-alerts</h4>
+                      <p className="text-xs text-slate-400">StructurAI Telemetry Stream</p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    BOT ONLINE
+                  </span>
+                </div>
+
+                {/* Slack Message Card Mockup */}
+                <div className="flex items-start gap-4 bg-slate-950/80 border border-slate-800 p-4 rounded-xl">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-rose-500 flex items-center justify-center text-white font-bold font-mono shadow-md flex-shrink-0">
+                    S
+                  </div>
+                  <div className="flex-1 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white text-sm">StructurAI Bot <span className="bg-slate-800 text-slate-400 text-[10px] px-1.5 py-0.5 rounded ml-1 font-mono">APP</span></span>
+                      <span className="text-slate-500 text-[11px]">Just now</span>
+                    </div>
+
+                    <div className="text-rose-400 font-bold text-sm flex items-center gap-2">
+                      <span>🔴</span> [StructurAI Alert] High Severity NullPointer Exception
+                    </div>
+
+                    <div className="bg-slate-900 border border-slate-800/80 rounded-lg p-3 space-y-1.5 font-mono text-[11px]">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Source: <strong className="text-slate-200">GitHub Push</strong></span>
+                        <span>Severity: <strong className="text-rose-400">HIGH</strong></span>
+                      </div>
+                      <div className="text-slate-300">
+                        <span className="text-slate-500">// Source Trace:</span><br/>
+                        <code className="text-amber-300">src/modules/auth/auth.service.js:142</code>
+                      </div>
+                      <div className="text-slate-400 pt-1">
+                        Commit: <code className="text-indigo-400">#fd89504</code> by <span className="text-slate-200">@pallavdeshmukh18</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center gap-3">
+                      <Button size="sm" className="h-8 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-mono font-bold rounded-lg shadow-sm">
+                        View Trace Details &rarr;
+                      </Button>
+                      <span className="text-[11px] text-slate-500 font-mono">Channel: #engineering-alerts</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer status */}
+                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>⚡ Webhook to Slack delay: <strong>8ms</strong></span>
+                  <span className="text-emerald-400 font-bold">✓ Direct MongoDB Sync</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Pitch & Setup instructions */}
+            <div className="w-full lg:w-1/2 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider">
+                <MessageSquare className="w-3.5 h-3.5" /> Workspace Bot Available
+              </div>
+
+              <h3 className="text-3xl lg:text-4xl font-bold font-serif leading-tight">
+                Get real-time telemetry alerts right in your Slack channels.
+              </h3>
+
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Connect your organization's Slack workspace to StructurAI. Whenever a GitHub push fails AST checks, a pull request introduces a regression, or a telemetry health check pings, the bot posts formatted incident cards directly to your team's public channels.
+              </p>
+
+              <div className="space-y-3 pt-2">
+                {[
+                  "Zero-latency webhook & trace alerts published to your public channel",
+                  "Includes commit author, source file location, and AI confidence score",
+                  "Built-in lightweight service under /slack directory for self-hosting"
+                ].map((feat, i) => (
+                  <div key={i} className="flex items-center gap-3 text-xs text-slate-300 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4 flex flex-col sm:flex-row gap-4">
+                <a href="/slack/README.md" target="_blank" rel="noopener noreferrer">
+                  <Button className="h-12 px-6 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold font-mono text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" /> Setup Slack Bot Guide
+                  </Button>
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       {/* Extension Installation Section (Gallery Style) */}
-      <section className="w-full py-24 relative z-10 border-t border-slate-200/60">
+      <section id="extension" className="w-full py-24 relative z-10 border-t border-slate-200/60">
         <div className="max-w-[1400px] mx-auto px-6">
           {/* Header split */}
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-slate-200 pb-10">
@@ -287,7 +421,7 @@ export function Landing() {
             </div>
             <div className="flex items-center gap-4 mt-8 md:mt-0">
               <div className="w-12 h-[1px] bg-rose-500"></div>
-              <span className="text-rose-600 font-mono font-bold tracking-widest text-xs uppercase">02 / Extension</span>
+              <span className="text-rose-600 font-mono font-bold tracking-widest text-xs uppercase">03 / Extension</span>
             </div>
           </div>
 
