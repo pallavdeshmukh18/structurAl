@@ -1,6 +1,6 @@
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
-import { ArrowRight, Activity, GitPullRequest, Code2, ShieldAlert, Server, Cpu, Code, Download, MessageSquare, Bell, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Server, Cpu, Code, Download, MessageSquare, CheckCircle2 } from "lucide-react";
 import { ReactFlow, Background, MarkerType } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useAuth } from "../context/AuthContext";
@@ -40,12 +40,7 @@ const previewEdges = [
 ];
 
 export function Landing() {
-  const { user, loading } = useAuth();
-
-  if (!loading && user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
+  const { user } = useAuth();
   const ctaLink = user ? "/dashboard" : "/signin";
 
   return (
