@@ -19,6 +19,11 @@ const slackRoutes = require("./src/modules/slack/slack.routes");
 
 const app = express();
 
+// Enable trust proxy for reverse proxies (Render, Vercel, Nginx, AWS ALB) to properly handle secure cookies
+if (process.env.NODE_ENV === "production" || process.env.TRUST_PROXY === "true") {
+    app.set("trust proxy", 1);
+}
+
 connectDB();
 
 const isProduction = process.env.NODE_ENV === "production";
