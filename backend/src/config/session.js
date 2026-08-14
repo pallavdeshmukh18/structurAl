@@ -28,6 +28,7 @@ const sessionConfig = session({
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
+    partitioned: isProduction,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
   },
 });
