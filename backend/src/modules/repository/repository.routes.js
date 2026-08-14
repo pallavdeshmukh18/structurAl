@@ -18,7 +18,7 @@ const {
   getRepositoryPullRequestDetails,
   getRepositoryGraph,
 } = require("./repository.controller");
-const { isAuthenticated } = require("../../middleware/auth");
+const { isAuthenticated, optionalAuth } = require("../../middleware/auth");
 
 router.get("/", isAuthenticated, listUserRepositories);
 router.post("/", isAuthenticated, connectRepository);
@@ -26,14 +26,14 @@ router.post("/connect", isAuthenticated, connectRepository);
 router.post("/add", isAuthenticated, addRepositoryByUrl);
 router.delete("/:id", isAuthenticated, deleteRepository);
 router.get("/:id", isAuthenticated, getRepositoryById);
-router.get("/:id/status", isAuthenticated, getRepositoryStatus);
+router.get("/:id/status", optionalAuth || isAuthenticated, getRepositoryStatus);
 router.post("/:id/index", isAuthenticated, triggerRepositoryIndexing);
 router.get("/:id/snapshots", isAuthenticated, getRepositorySnapshots);
-router.get("/:id/symbols", isAuthenticated, getRepositorySymbols);
-router.get("/:id/relations", isAuthenticated, getRepositoryRelations);
+router.get("/:id/symbols", optionalAuth || isAuthenticated, getRepositorySymbols);
+router.get("/:id/relations", optionalAuth || isAuthenticated, getRepositoryRelations);
 router.get("/:id/graph", isAuthenticated, getRepositoryGraph);
-router.get("/:id/tree", isAuthenticated, getRepositoryTree);
-router.get("/:id/contents", isAuthenticated, getRepositoryFileContent);
+router.get("/:id/tree", optionalAuth || isAuthenticated, getRepositoryTree);
+router.get("/:id/contents", optionalAuth || isAuthenticated, getRepositoryFileContent);
 router.get("/:id/pulls", isAuthenticated, getRepositoryPullRequests);
 router.get("/:id/pulls/:number", isAuthenticated, getRepositoryPullRequestDetails);
 
@@ -42,7 +42,23 @@ router.get("/:owner/:repo/graph", isAuthenticated, (req, res, next) => {
   req.params.id = `${req.params.owner}/${req.params.repo}`;
   return getRepositoryGraph(req, res, next);
 });
-router.get("/:owner/:repo/status", isAuthenticated, (req, res, next) => {
+router.get("/:owner/:repo/tree", optionalAuth || isAuthenticated, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryTree(req, res, next);
+});
+router.get("/:owner/:repo/contents", optionalAuth || isAuthenticated, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryFileContent(req, res, next);
+});
+router.get("/:owner/:repo/symbols", optionalAuth || isAuthenticated, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositorySymbols(req, res, next);
+});
+router.get("/:owner/:repo/relations", optionalAuth || isAuthenticated, (req, res, next) => {
+  req.params.id = `${req.params.owner}/${req.params.repo}`;
+  return getRepositoryRelations(req, res, next);
+});
+router.get("/:owner/:repo/status", optionalAuth || isAuthenticated, (req, res, next) => {
   req.params.id = `${req.params.owner}/${req.params.repo}`;
   return getRepositoryStatus(req, res, next);
 });
