@@ -32,7 +32,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 const ERROR_MESSAGE_MAP: Record<string, string> = {
   oauth_cancelled: 'GitHub authentication was cancelled or could not be completed.',

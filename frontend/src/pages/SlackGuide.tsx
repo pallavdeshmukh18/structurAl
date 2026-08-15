@@ -10,7 +10,7 @@ import {
   Terminal
 } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 export function SlackGuide() {
   const [copiedToken, setCopiedToken] = useState(false);

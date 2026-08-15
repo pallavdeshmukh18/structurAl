@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { MessageSquare, CheckCircle2, ExternalLink, X, AlertCircle, RefreshCw, Bot, Shield, Zap } from "lucide-react";
 import { Button } from "../ui/Button";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 interface SlackStatus {
   isConfigured: boolean;
