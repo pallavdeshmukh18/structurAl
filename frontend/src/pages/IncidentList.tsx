@@ -11,6 +11,9 @@ import {
   AlertTriangle,
   Radio,
   Activity,
+  GitBranch,
+  ExternalLink,
+  Sparkles
 } from "lucide-react";
 
 interface IncidentItem {
@@ -260,6 +263,42 @@ export function IncidentList() {
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-indigo-600" : "text-slate-500"}`} />
             <span>Refresh</span>
           </button>
+        </div>
+      </div>
+
+      {/* GitHub App Prompt Banner */}
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl text-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/30 text-indigo-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <GitBranch className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-white text-base">Track Repositories Automatically with GitHub App</h3>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold border border-emerald-500/30">NO NGROK REQUIRED</span>
+            </div>
+            <p className="text-slate-300 text-xs mt-1 max-w-2xl leading-relaxed">
+              Install the official <strong>StructurAI Engine GitHub App</strong> to receive zero-config live incident updates directly from GitHub whenever you or your team pushes code or opens PRs.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-shrink-0 w-full md:w-auto justify-end">
+          <Link to="/github-app/guide">
+            <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold font-mono transition-all shadow-md flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Setup Guide & Installation</span>
+            </button>
+          </Link>
+          <a
+            href="https://github.com/apps/structural-engine"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-bold font-mono transition-all flex items-center gap-1.5"
+          >
+            <span>Install App</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
       </div>
 

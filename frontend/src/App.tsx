@@ -18,6 +18,7 @@ import { ProjectList } from "./pages/ProjectList";
 import { ProjectWorkspace } from "./pages/ProjectWorkspace";
 import { ProjectJoin } from "./pages/ProjectJoin";
 import { SlackGuide } from "./pages/SlackGuide";
+import { GitHubAppGuide } from "./pages/GitHubAppGuide";
 
 import "./App.css";
 
@@ -33,6 +34,9 @@ function App() {
           <Route path="/slack" element={<SlackGuide />} />
           <Route path="/slack/guide" element={<SlackGuide />} />
           <Route path="/slack/README.md" element={<SlackGuide />} />
+          <Route path="/github-app" element={<GitHubAppGuide />} />
+          <Route path="/github-app/guide" element={<GitHubAppGuide />} />
+          <Route path="/github-app-guide" element={<GitHubAppGuide />} />
         </Route>
 
         {/* Guest-only Authentication Routes (Redirects authenticated users to /dashboard) */}
