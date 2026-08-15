@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://structur-al-4m32.onrender.com/api/:path*"
+      "destination": "https://structural-4m32.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
