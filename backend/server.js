@@ -54,6 +54,12 @@ app.use(
                 return callback(null, true);
             }
 
+            // Allow tightly scoped Vercel preview deployments for the StructurAI project
+            // Example: https://structur-alhs2pdp0e-pallav-deshmukhs-projects.vercel.app
+            if (/^https:\/\/structur-al[a-zA-Z0-9-]*\.vercel\.app$/.test(normalizedOrigin)) {
+                return callback(null, true);
+            }
+
             // Allow GitHub OAuth & Browser Extension requests
             if (
                 origin === "https://github.com" ||
