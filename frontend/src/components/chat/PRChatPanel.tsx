@@ -3,7 +3,7 @@ import { MessageSquare, Send, Users, UserPlus, X, Loader2, Search, Hash } from "
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/Button";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE_URL = import.meta.env.PROD ? "" : (import.meta.env.VITE_API_BASE_URL || "");
 
 interface PRChatPanelProps {
   repoId: string;

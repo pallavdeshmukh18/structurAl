@@ -37,7 +37,7 @@ interface GroupReviewRoomProps {
   onToggleDock?: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE_URL = import.meta.env.PROD ? "" : (import.meta.env.VITE_API_BASE_URL || "");
 
 export function GroupReviewRoom({
   channelName,

@@ -24,7 +24,7 @@ import { GroupReviewRoom } from "../components/review/GroupReviewRoom";
 import { ScheduleMeetingModal } from "../components/review/ScheduleMeetingModal";
 import { PRChatPanel } from "../components/chat/PRChatPanel";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE_URL = import.meta.env.PROD ? "" : (import.meta.env.VITE_API_BASE_URL || "");
 
 // Demo fallback data if repository or PR has not been indexed yet
 const MOCK_PR_DATA = {

@@ -11,9 +11,8 @@ function walkDir(dir, callback) {
   });
 }
 
-const targetString = 'const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";';
-const targetString2 = "const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';";
-const replacementString = 'const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";';
+const targetString = 'const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";';
+const replacementString = `const API_BASE_URL = import.meta.env.PROD ? "" : (import.meta.env.VITE_API_BASE_URL || "");`;
 
 walkDir(srcDir, (filePath) => {
   if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
@@ -21,10 +20,6 @@ walkDir(srcDir, (filePath) => {
     let modified = false;
     if (content.includes(targetString)) {
       content = content.replace(targetString, replacementString);
-      modified = true;
-    }
-    if (content.includes(targetString2)) {
-      content = content.replace(targetString2, replacementString);
       modified = true;
     }
     if (modified) {
