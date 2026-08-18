@@ -6,7 +6,6 @@ import { ProtectedRoute, GuestRoute } from "./components/ProtectedRoute";
 // Pages
 import { Landing } from "./pages/Landing";
 import { SignIn } from "./pages/SignIn";
-import { SignUp } from "./pages/SignUp";
 import { Dashboard } from "./pages/Dashboard";
 import { IncidentList } from "./pages/IncidentList";
 import { IncidentDetail } from "./pages/IncidentDetail";
@@ -42,7 +41,6 @@ function App() {
         {/* Guest-only Authentication Routes (Redirects authenticated users to /dashboard) */}
         <Route element={<GuestRoute />}>
           <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
         </Route>
 
         {/* Protected Application Dashboard & Feature Routes */}

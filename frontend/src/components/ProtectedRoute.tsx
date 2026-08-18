@@ -28,7 +28,7 @@ export const ProtectedRoute: React.FC = () => {
 };
 
 /**
- * Route wrapper for public-only auth pages (like /signin and /signup).
+ * Route wrapper for public-only auth pages (like /signin).
  * Redirects authenticated users to /dashboard.
  */
 export const GuestRoute: React.FC = () => {

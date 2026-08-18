@@ -32,64 +32,25 @@ export function SignIn() {
         )}
 
         <Card className="shadow-xl shadow-indigo-100/50 border-slate-200/60 bg-white/80 backdrop-blur-xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-lg">Sign In</CardTitle>
-            <CardDescription>Enter your email and password below</CardDescription>
+          <CardHeader className="space-y-1 pb-4 text-center">
+            <CardTitle className="text-xl">Sign in with GitHub</CardTitle>
+            <CardDescription>
+              StructurAI requires GitHub authentication to analyze your repositories.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700" htmlFor="email">Email</label>
-              <input 
-                id="email" 
-                type="email" 
-                placeholder="m@example.com" 
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-700" htmlFor="password">Password</label>
-                <Link to="#" className="text-sm font-medium text-indigo-600 hover:underline">Forgot password?</Link>
-              </div>
-              <input 
-                id="password" 
-                type="password" 
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
-              />
-            </div>
-            
-            <Link to="/dashboard" className="block pt-2">
-              <Button className="w-full h-10 text-sm">Sign In</Button>
-            </Link>
-            
-            <div className="relative py-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white/80 px-2 text-slate-500">Or</span>
-              </div>
-            </div>
-            
             <div>
               <Button 
                 variant="outline" 
-                className="w-full h-10 text-sm bg-white cursor-pointer hover:bg-slate-50 border-slate-300 font-semibold text-slate-800 flex items-center justify-center" 
+                className="w-full h-12 text-sm bg-white cursor-pointer hover:bg-slate-50 border-slate-300 font-semibold text-slate-800 flex items-center justify-center" 
                 onClick={loginWithGitHub}
               >
-                <Terminal className="mr-2 h-4 w-4 text-slate-700" />
+                <Terminal className="mr-2 h-5 w-5 text-slate-700" />
                 Continue with GitHub
               </Button>
             </div>
           </CardContent>
         </Card>
-        
-        <p className="text-center text-sm text-slate-600 mt-8">
-          Don't have an account?{" "}
-          <Link to="/signup" className="font-medium text-indigo-600 hover:underline">
-            Sign up for free
-          </Link>
-        </p>
       </div>
     </div>
   );
